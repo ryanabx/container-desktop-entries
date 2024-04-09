@@ -1,0 +1,1 @@
+# toolbox-desktop-entries: Freedesktop Desktop Entries for Toolboxes!
