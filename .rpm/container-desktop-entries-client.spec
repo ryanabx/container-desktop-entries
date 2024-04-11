@@ -21,8 +21,8 @@ License:        # FIXME
 # LICENSE.dependencies contains a full license breakdown
 
 URL:            https://github.com/ryanabx/container-desktop-entries
-Source:         container-desktop-entries-%{ver}.tar.xz
-Source:         container-desktop-entries-%{ver}-vendor.tar.xz
+Source:         container-desktop-entries-client-%{ver}.tar.xz
+Source:         container-desktop-entries-client-%{ver}-vendor.tar.xz
 
 BuildRequires:  cargo-rpm-macros >= 26
 BuildRequires:  rustc
