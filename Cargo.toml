@@ -4,8 +4,21 @@ version = "0.1.0"
 license = "Apache-2.0"
 edition = "2021"
 
+[features]
+default = ["server"]
+server = ["dep:zbus"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.5.4", features = ["derive"] }
-zbus = "4.1.2"
+env_logger = "0.11.3"
+freedesktop-desktop-entry = "0.5.2"
+freedesktop-icons = "0.2.6"
+log = "0.4.21"
+regex = "1.10.4"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.115"
+xdg = "2.5.2"
+zbus = {version = "4.1.2", optional = true}
