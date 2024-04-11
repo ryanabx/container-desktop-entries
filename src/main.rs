@@ -174,7 +174,7 @@ fn run_on_container(
     command: &str,
 ) -> Result<(String, String), ContainerError> {
     log::debug!(
-        "Full command: sh -c {} run -c {} {}",
+        "Full command: sh -c {} container exec -c {} {}",
         container_type,
         container_name,
         command
@@ -182,7 +182,7 @@ fn run_on_container(
     let out = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{} run -c {} {}",
+            "{} container exec -c {} {}",
             container_type, container_name, command
         ))
         .output();
@@ -346,7 +346,7 @@ fn container_client(container_name: &str, container_type: &str) {
                                 .replace(
                                     &txt,
                                     format!(
-                                        "Exec: {} container run -c {} ",
+                                        "Exec: {} container exec -c {} ",
                                         container_type, container_name
                                     ),
                                 )
