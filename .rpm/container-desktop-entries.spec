@@ -51,7 +51,7 @@ cat .vendor/config.toml >> .cargo/config
 
 %install
 install -Dm0755 target/release/container-desktop-entries %{buildroot}/%{_bindir}/container-desktop-entries
-install -Dm0644 systemd/container-desktop-entries.service %{_userunitdir}/container-desktop-entries.service
+install -Dm0644 systemd/container-desktop-entries.service %{buildroot}/%{_userunitdir}/container-desktop-entries.service
 
 %if %{with check}
 %check
