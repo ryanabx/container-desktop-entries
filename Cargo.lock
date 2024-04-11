@@ -452,6 +452,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "container-desktop-entries"
+version = "0.1.0"
+dependencies = [
+ "async-std",
+ "clap",
+ "env_logger",
+ "freedesktop-desktop-entry",
+ "freedesktop-icons",
+ "log",
+ "regex",
+ "serde",
+ "serde_json",
+ "xdg",
+ "zbus",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1459,23 +1476,6 @@ dependencies = [
  "indexmap",
  "toml_datetime",
  "winnow",
-]
-
-[[package]]
-name = "toolbox-desktop-entries"
-version = "0.1.0"
-dependencies = [
- "async-std",
- "clap",
- "env_logger",
- "freedesktop-desktop-entry",
- "freedesktop-icons",
- "log",
- "regex",
- "serde",
- "serde_json",
- "xdg",
- "zbus",
 ]
 
 [[package]]

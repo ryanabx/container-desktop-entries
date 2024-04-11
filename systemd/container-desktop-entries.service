@@ -1,0 +1,11 @@
+[Unit]
+Description=Container desktop entries service
+DefaultDependencies=no
+After=desktop-entry-daemon.service
+
+[Service]
+Type=oneshot
+ExecStart=container-desktop-entries
+SuccessExitStatus=DATAERR
+IOSchedulingClass=idle
+Slice=background.slice
