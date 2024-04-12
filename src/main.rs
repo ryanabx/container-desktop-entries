@@ -310,7 +310,14 @@ async fn container_server(
         log::debug!("Found icon: {:?}", entry);
         if let Some((_, icon_path)) = &entry.path().to_str().unwrap().split_once("/icons/") {
             icon_full_paths.push(entry.path().to_str().unwrap().to_string());
-            icon_partial_paths.push(icon_path.to_string());
+            icon_partial_paths.push(
+                Path::new(icon_path)
+                    .parent()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            );
         } else {
             log::error!("Icon path didn't have /icons/ in it! {:?}", entry);
         }
