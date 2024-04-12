@@ -5,6 +5,7 @@ After=desktop-entry-daemon.service
 
 [Service]
 Type=oneshot
+Environment="RUST_LOG=info"
 ExecStart=container-desktop-entries
 SuccessExitStatus=DATAERR
 IOSchedulingClass=idle

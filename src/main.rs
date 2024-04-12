@@ -46,6 +46,7 @@ struct Args {
     client: bool,
 }
 
+#[derive(Debug, Clone)]
 enum Mode {
     Client,
     #[cfg(feature = "server")]
@@ -70,6 +71,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     #[cfg(not(feature = "server"))]
     let mode = Mode::Client;
+
+    log::info!("args: {:?}, mode: {:?}", args, mode);
 
     let names_and_protocols = if args.name_and_protocol.is_some() {
         let s = args
@@ -174,7 +177,7 @@ fn run_on_container(
     command: &str,
 ) -> Result<(String, String), ContainerError> {
     log::debug!(
-        "Full command: sh -c {} container exec {} {}",
+        "Full command: sh -c '{} container exec {} {}'",
         container_type,
         container_name,
         command
@@ -190,8 +193,8 @@ fn run_on_container(
         Ok(ref o) => {
             let std_out = String::from_utf8(o.stdout.clone()).unwrap();
             let std_err = String::from_utf8(o.stderr.clone()).unwrap();
-            log::debug!("{:?}", std_out);
-            log::debug!("{:?}", std_err);
+            log::debug!("std_out: '{:?}'", std_out);
+            log::debug!("std_err: '{:?}'", std_err);
             if std_err.contains("command not found") || std_out.contains("command not found") {
                 Err(ContainerError::CommandNotFound)
             } else {
@@ -255,7 +258,7 @@ async fn container_server(
     let _ = start_container(container_name, container_type, "");
 
     let _ = run_on_container(
-        container_name,
+        &format!("-e RUST_LOG=trace {}", container_name),
         container_type,
         &format!(
             "container-desktop-entries-client --name-and-protocol '{} {}'",
@@ -295,9 +298,21 @@ async fn container_server(
             })
             .collect::<Vec<_>>();
 
-        let _ = proxy
+        match proxy
             .register_entries(&entries.iter().map(String::as_ref).collect::<Vec<_>>())
-            .await?;
+            .await
+        {
+            Ok(res) => {
+                if res {
+                    log::info!("Entries registered successfully!");
+                } else {
+                    log::warn!("Entries were not registed successfully.");
+                }
+            }
+            Err(e) => {
+                log::error!("Error (entries): {:?}", e);
+            }
+        }
     }
 
     if let Ok(read_dir) = read_dir(tmp_icons_to) {
@@ -309,9 +324,21 @@ async fn container_server(
             })
             .collect::<Vec<_>>();
 
-        let _ = proxy
+        match proxy
             .register_icons(&icons.iter().map(String::as_ref).collect::<Vec<_>>())
-            .await?;
+            .await
+        {
+            Ok(res) => {
+                if res {
+                    log::info!("Icons registered successfully!");
+                } else {
+                    log::warn!("Icons were not registed successfully.");
+                }
+            }
+            Err(e) => {
+                log::error!("Error (icons): {:?}", e);
+            }
+        }
     }
 
     let _ = remove_dir_all(tmp_applications_to);
