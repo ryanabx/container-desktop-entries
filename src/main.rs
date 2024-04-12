@@ -14,8 +14,6 @@ use std::fmt::Display;
 use std::io;
 #[cfg(feature = "server")]
 use std::process::Command;
-#[cfg(feature = "server")]
-use std::process::Output;
 use std::{
     fs::{read_dir, read_to_string},
     io::Write,
@@ -293,12 +291,8 @@ async fn container_server(
             .register_entries(&entries.iter().map(String::as_ref).collect::<Vec<_>>())
             .await
         {
-            Ok(res) => {
-                if res {
-                    log::info!("Entries registered successfully!");
-                } else {
-                    log::warn!("Entries were not registed successfully.");
-                }
+            Ok(resulting_entries) => {
+                log::info!("daemon registered entries: {:?}", resulting_entries);
             }
             Err(e) => {
                 log::error!("Error (entries): {:?}", e);
@@ -321,12 +315,8 @@ async fn container_server(
             .register_icons(&icons.iter().map(String::as_ref).collect::<Vec<_>>())
             .await
         {
-            Ok(res) => {
-                if res {
-                    log::info!("Icons registered successfully!");
-                } else {
-                    log::warn!("Icons were not registed successfully.");
-                }
+            Ok(resulting_icons) => {
+                log::info!("daemon registered icons: {:?}", resulting_icons);
             }
             Err(e) => {
                 log::error!("Error (icons): {:?}", e);

@@ -11,9 +11,9 @@
 //! This type implements the [D-Bus standard interfaces], (`org.freedesktop.DBus.*`) for which the
 //! following zbus API can be used:
 //!
+//! * [`zbus::fdo::IntrospectableProxy`]
 //! * [`zbus::fdo::PropertiesProxy`]
 //! * [`zbus::fdo::PeerProxy`]
-//! * [`zbus::fdo::IntrospectableProxy`]
 //!
 //! Consequently `zbus-xmlgen` did not generate code for the above interfaces.
 //!
@@ -27,14 +27,14 @@ use zbus::proxy;
 )]
 trait DesktopEntry {
     /// RegisterEntries method
-    fn register_entries(&self, entry_paths: &[&str]) -> zbus::Result<bool>;
+    fn register_entries(&self, entry_paths: &[&str]) -> zbus::Result<Vec<String>>;
 
     /// RegisterIcons method
-    fn register_icons(&self, icon_paths: &[&str]) -> zbus::Result<bool>;
+    fn register_icons(&self, icon_paths: &[&str]) -> zbus::Result<Vec<String>>;
 
     /// RemoveEntries method
-    fn remove_entries(&self, entry_names: &[&str]) -> zbus::Result<bool>;
+    fn remove_entries(&self, entry_names: &[&str]) -> zbus::Result<Vec<String>>;
 
     /// RemoveIcons method
-    fn remove_icons(&self, icon_names: &[&str]) -> zbus::Result<bool>;
+    fn remove_icons(&self, icon_names: &[&str]) -> zbus::Result<Vec<String>>;
 }
