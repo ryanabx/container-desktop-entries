@@ -1,6 +1,6 @@
 use clap::Parser;
 use freedesktop_desktop_entry::DesktopEntry;
-use freedesktop_icons::lookup;
+use freedesktop_icon_lookup::{Cache, IconInfo, LookupParam};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -11,12 +11,13 @@ use std::fs::{self, create_dir_all, remove_dir_all, File};
 #[cfg(feature = "server")]
 use std::fmt::Display;
 #[cfg(feature = "server")]
+use std::fs::DirEntry;
+#[cfg(feature = "server")]
 use std::io;
 #[cfg(feature = "server")]
 use std::process::Command;
 use std::{
     fs::{read_dir, read_to_string},
-    io::Write,
     path::Path,
 };
 use xdg::BaseDirectories;
@@ -302,28 +303,38 @@ async fn container_server(
         log::error!("Could not read applications directory")
     }
 
-    if let Ok(read_dir) = read_dir(tmp_icons_to) {
-        let icons = read_dir
-            .into_iter()
-            .filter_map(|f| match f {
-                Ok(s) => Some(s.path().to_str().unwrap().to_string()),
-                Err(_) => None,
-            })
-            .collect::<Vec<_>>();
+    let mut icon_full_paths = Vec::new();
+    let mut icon_partial_paths = Vec::new();
 
-        match proxy
-            .register_icons(&icons.iter().map(String::as_ref).collect::<Vec<_>>())
-            .await
-        {
-            Ok(resulting_icons) => {
-                log::info!("daemon registered icons: {:?}", resulting_icons);
-            }
-            Err(e) => {
-                log::error!("Error (icons): {:?}", e);
-            }
+    let _ = visit_dirs(tmp_icons_to, &mut |entry| {
+        log::debug!("Found icon: {:?}", entry);
+        if let Some((_, icon_path)) = &entry.path().to_str().unwrap().split_once("/icons/") {
+            icon_full_paths.push(entry.path().to_str().unwrap().to_string());
+            icon_partial_paths.push(icon_path.to_string());
+        } else {
+            log::error!("Icon path didn't have /icons/ in it! {:?}", entry);
         }
-    } else {
-        log::error!("Could not read icons directory");
+    });
+
+    match proxy
+        .register_icons(
+            &icon_full_paths
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            &icon_partial_paths
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+        )
+        .await
+    {
+        Ok(resulting_icons) => {
+            log::info!("daemon registered icons: {:?}", resulting_icons);
+        }
+        Err(e) => {
+            log::error!("Error (icons): {:?}", e);
+        }
     }
 
     let _ = remove_dir_all(tmp_applications_to);
@@ -340,6 +351,26 @@ async fn container_server(
         container_type,
         &format!("rm -r {}", tmp_icons_from.to_str().unwrap()),
     )?;
+    Ok(())
+}
+
+// one possible implementation of walking a directory only visiting files
+#[cfg(feature = "server")]
+fn visit_dirs<F>(dir: &Path, cb: &mut F) -> io::Result<()>
+where
+    F: FnMut(DirEntry),
+{
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                visit_dirs(&path, cb)?;
+            } else {
+                cb(entry);
+            }
+        }
+    }
     Ok(())
 }
 
@@ -414,20 +445,59 @@ fn container_client(container_name: &str, container_type: &str) {
             }
         }
     }
+    let mut icon_paths = Vec::new();
+    let cache = Cache::new().unwrap();
     for icon in &icon_names {
-        let f = lookup(&icon).with_cache().find();
+        let f = cache.lookup(&icon, None);
         if let Some(fpath) = f {
-            let _ = fs::copy(
-                fpath.as_path(),
-                tmp_icons_dir.join(Path::new(
-                    fpath.as_path().file_name().unwrap().to_str().unwrap(),
-                )),
-            );
+            let full_path = fpath.as_path().to_str().unwrap().to_string();
+            let file_name = fpath
+                .as_path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+            let icon_subpath = if let Some((_, icon_dir)) = full_path.split_once("/icons/") {
+                log::info!(
+                    "Icon {:?} successful! logging subpath {:?}",
+                    &fpath,
+                    icon_dir
+                );
+                Path::new(icon_dir).to_path_buf()
+            } else if let Some((_, _)) = full_path.split_once("/pixmaps/") {
+                log::info!(
+                    "Icon {:?} successful! logging subpath hicolor/48x48/apps/ as it was a pixmap",
+                    &fpath
+                );
+                Path::new(&format!("hicolor/48x48/apps/{}", file_name)).to_path_buf()
+            } else {
+                log::warn!("Neither pixmap or icon. what is this?");
+                Path::new(&format!("hicolor/48x48/apps/{}", file_name)).to_path_buf()
+            };
+            match fs::copy(fpath.as_path(), tmp_icons_dir.join(&icon_subpath)) {
+                Ok(_) => {
+                    log::info!(
+                        "Copied successfully from {:?} to path {:?}",
+                        fpath,
+                        icon_subpath
+                    );
+                    icon_paths.push(icon_subpath.to_str().unwrap().to_string());
+                }
+                Err(e) => {
+                    log::warn!(
+                        "could not copy file {:?} to path {:?} error: {:?}",
+                        fpath,
+                        icon_subpath,
+                        e
+                    );
+                }
+            }
         }
     }
     log::info!(
         "Successfully saved {} .desktop entries and {} icons!",
         entries_count,
-        icon_names.len()
+        icon_paths.len()
     )
 }

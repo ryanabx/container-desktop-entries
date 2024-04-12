@@ -30,7 +30,7 @@ trait DesktopEntry {
     fn register_entries(&self, entry_paths: &[&str]) -> zbus::Result<Vec<String>>;
 
     /// RegisterIcons method
-    fn register_icons(&self, icon_paths: &[&str]) -> zbus::Result<Vec<String>>;
+    fn register_icons(&self, icon_paths: &[&str], subpaths: &[&str]) -> zbus::Result<Vec<String>>;
 
     /// RemoveEntries method
     fn remove_entries(&self, entry_names: &[&str]) -> zbus::Result<Vec<String>>;
