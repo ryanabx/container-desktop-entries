@@ -406,18 +406,13 @@ fn container_client(container_name: &str, container_type: &str) {
                     if ty.is_file() && entry.path().extension().is_some_and(|ext| ext == "desktop")
                     {
                         if let Ok(txt) = read_to_string(&entry.path()) {
-                            let new_text = regex_handler
-                                .replace(
-                                    &txt,
-                                    format!(
-                                        "Exec={} container start {} && {} container exec {} ",
-                                        container_type,
-                                        container_name,
-                                        container_type,
-                                        container_name
-                                    ),
-                                )
-                                .into_owned();
+                            let new_text = regex_handler.replace_all(
+                                &txt,
+                                format!(
+                                    "Exec={} container start {} && {} container exec {} ",
+                                    container_type, container_name, container_type, container_name
+                                ),
+                            );
                             match std::fs::write(
                                 tmp_applications_dir.join(entry.file_name()),
                                 new_text.as_bytes(),
