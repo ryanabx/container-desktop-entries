@@ -392,7 +392,7 @@ fn container_client(container_name: &str, container_type: &str) {
     let _ = create_dir_all(tmp_applications_dir);
     let _ = create_dir_all(tmp_icons_dir);
     let mut icon_names: Vec<String> = Vec::new();
-    let regex_handler = Regex::new(r"Exec=\s?").unwrap();
+    let regex_handler = Regex::new(r"(Exec:\s?)(.*)").unwrap();
     let mut entries_count = 0;
     for dirs in data_dirs {
         let app_dir = dirs.as_path().join(Path::new("applications"));
@@ -409,7 +409,7 @@ fn container_client(container_name: &str, container_type: &str) {
                             let new_text = regex_handler.replace_all(
                                 &txt,
                                 format!(
-                                    "Exec={} container start {} && {} container exec {} ",
+                                    r"Exec: sh -c '{} container start {} && {} container exec {} \2'",
                                     container_type, container_name, container_type, container_name
                                 ),
                             );
@@ -438,7 +438,7 @@ fn container_client(container_name: &str, container_type: &str) {
                             }
                         }
                     } else {
-                        log::warn!("Skipping {:?} as it is either not a file or does not end with .desktop", entry)
+                        log::warn!("Skipping {:?} as it is either not a file or does not end with .desktop. Extension: {:?} is_file: {:?}", entry, entry.path().extension(), ty.is_file());
                     }
                 }
             }
