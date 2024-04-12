@@ -476,7 +476,7 @@ fn container_client(container_name: &str, container_type: &str) {
                 Path::new(&format!("hicolor/48x48/apps/{}", file_name)).to_path_buf()
             };
             let tmp_icon_to = tmp_icons_dir.join(&icon_subpath);
-            let tmp_icon_dir = tmp_icon_to.as_path().ancestors().nth(1).take().unwrap();
+            let tmp_icon_dir = tmp_icon_to.parent().unwrap();
             if !tmp_icon_dir.exists() {
                 let _ = create_dir_all(tmp_icon_dir);
             }
