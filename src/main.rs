@@ -206,6 +206,21 @@ fn run_on_container(
 }
 
 #[cfg(feature = "server")]
+fn start_container(
+    container_name: &str,
+    container_type: &str,
+    container_args: &str,
+) -> io::Result<Output> {
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "{} start {} {}",
+            container_type, container_name, container_args
+        ))
+        .output()
+}
+
+#[cfg(feature = "server")]
 /// copy files on the container of choice
 fn copy_from_container(
     container_name: &str,
@@ -236,6 +251,8 @@ async fn container_server(
     let connection = Connection::session().await?;
 
     let proxy = DesktopEntryProxy::new(&connection).await?;
+
+    let _ = start_container(container_name, container_type, "");
 
     let _ = run_on_container(
         container_name,
