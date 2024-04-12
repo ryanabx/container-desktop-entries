@@ -392,7 +392,7 @@ fn container_client(container_name: &str, container_type: &str) {
     let _ = create_dir_all(tmp_applications_dir);
     let _ = create_dir_all(tmp_icons_dir);
     let mut icon_names: Vec<String> = Vec::new();
-    let regex_handler = Regex::new(r"^Exec=\s?").unwrap();
+    let regex_handler = Regex::new(r"Exec=\s?").unwrap();
     let mut entries_count = 0;
     for dirs in data_dirs {
         let app_dir = dirs.as_path().join(Path::new("applications"));
