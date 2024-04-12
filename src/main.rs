@@ -354,7 +354,7 @@ fn container_client(container_name: &str, container_type: &str) {
     let _ = create_dir_all(tmp_applications_dir);
     let _ = create_dir_all(tmp_icons_dir);
     let mut icon_names: Vec<String> = Vec::new();
-    let regex_handler = Regex::new(r"^Exec:\s?.*$").unwrap();
+    let regex_handler = Regex::new(r"^Exec=\s?").unwrap();
     let mut entries_count = 0;
     for dirs in data_dirs {
         let app_dir = dirs.as_path().join(Path::new("applications"));
@@ -368,26 +368,39 @@ fn container_client(container_name: &str, container_type: &str) {
                     if ty.is_file() && entry.path().extension().is_some_and(|ext| ext == "desktop")
                     {
                         if let Ok(txt) = read_to_string(&entry.path()) {
-                            let mut f =
-                                fs::File::create_new(tmp_applications_dir.join(entry.file_name()))
-                                    .expect("file already exists");
                             let new_text = regex_handler
                                 .replace(
                                     &txt,
                                     format!(
-                                        "Exec: {} container exec {} ",
-                                        container_type, container_name
+                                        "Exec={} container start {} && {} container exec {} ",
+                                        container_type,
+                                        container_name,
+                                        container_type,
+                                        container_name
                                     ),
                                 )
                                 .into_owned();
-                            let _ = f.write_all(new_text.as_bytes());
-                            if let Ok(desktop_entry) = DesktopEntry::decode(
-                                &tmp_applications_dir.join(entry.file_name()),
-                                &new_text,
+                            match std::fs::write(
+                                tmp_applications_dir.join(entry.file_name()),
+                                new_text.as_bytes(),
                             ) {
-                                entries_count += 1;
-                                if let Some(icon_name) = desktop_entry.icon() {
-                                    icon_names.push(icon_name.to_string());
+                                Ok(_) => {
+                                    if let Ok(desktop_entry) = DesktopEntry::decode(
+                                        &tmp_applications_dir.join(entry.file_name()),
+                                        &new_text,
+                                    ) {
+                                        entries_count += 1;
+                                        if let Some(icon_name) = desktop_entry.icon() {
+                                            icon_names.push(icon_name.to_string());
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    log::error!(
+                                        "Could not write to file '{:?}' error: {:?}",
+                                        tmp_applications_dir.join(entry.file_name()),
+                                        e
+                                    );
                                 }
                             }
                         }
