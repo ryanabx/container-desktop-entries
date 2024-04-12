@@ -1,6 +1,6 @@
 [Unit]
 Description=Container desktop entries service
-DefaultDependencies=no
+Requires=desktop-entry-daemon.service
 After=desktop-entry-daemon.service
 
 [Service]
@@ -10,3 +10,6 @@ ExecStart=container-desktop-entries
 SuccessExitStatus=DATAERR
 IOSchedulingClass=idle
 Slice=background.slice
+
+[Install]
+WantedBy=graphical.target
