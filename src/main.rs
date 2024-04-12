@@ -475,7 +475,12 @@ fn container_client(container_name: &str, container_type: &str) {
                 log::warn!("Neither pixmap or icon. what is this?");
                 Path::new(&format!("hicolor/48x48/apps/{}", file_name)).to_path_buf()
             };
-            match fs::copy(fpath.as_path(), tmp_icons_dir.join(&icon_subpath)) {
+            let tmp_icon_to = tmp_icons_dir.join(&icon_subpath);
+            let tmp_icon_dir = tmp_icon_to.as_path().ancestors().nth(1).take().unwrap();
+            if !tmp_icon_dir.exists() {
+                let _ = create_dir_all(tmp_icon_dir);
+            }
+            match fs::copy(fpath.as_path(), tmp_icon_to) {
                 Ok(_) => {
                     log::info!(
                         "Copied successfully from {:?} to path {:?}",
