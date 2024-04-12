@@ -258,7 +258,7 @@ async fn container_server(
         container_name,
         container_type,
         &format!(
-            "container-desktop-entries-client --client --name-and-protocol '{} {}'",
+            "container-desktop-entries-client --name-and-protocol '{} {}'",
             container_name, container_type
         ),
     )?;
