@@ -176,19 +176,16 @@ fn run_on_container(
     container_type: &str,
     command: &str,
 ) -> Result<(String, String), ContainerError> {
-    log::debug!(
-        "Full command: sh -c '{} container exec {} {}'",
-        container_type,
-        container_name,
-        command
-    );
-    let out = Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{} container exec {} {}",
-            container_type, container_name, command
-        ))
-        .output();
+    shell_command(&format!(
+        "{} container exec {} {}",
+        container_type, container_name, command
+    ))
+}
+
+#[cfg(feature = "server")]
+fn shell_command(command: &str) -> Result<(String, String), ContainerError> {
+    log::debug!("Full command: sh -c '{}'", command);
+    let out = Command::new("sh").arg("-c").arg(command).output();
     match out {
         Ok(ref o) => {
             let std_out = String::from_utf8(o.stdout.clone()).unwrap();
@@ -202,7 +199,7 @@ fn run_on_container(
             }
         }
         Err(ref e) => {
-            log::debug!("error: {:?}", e);
+            log::error!("error: {:?}", e);
             Err(ContainerError::IO(out.unwrap_err()))
         }
     }
@@ -213,14 +210,11 @@ fn start_container(
     container_name: &str,
     container_type: &str,
     container_args: &str,
-) -> io::Result<Output> {
-    Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{} start {} {}",
-            container_type, container_name, container_args
-        ))
-        .output()
+) -> Result<(String, String), ContainerError> {
+    shell_command(&format!(
+        "{} start {} {}",
+        container_type, container_name, container_args
+    ))
 }
 
 #[cfg(feature = "server")]
@@ -230,14 +224,11 @@ fn copy_from_container(
     container_type: &str,
     from: &str,
     to: &str,
-) -> io::Result<Output> {
-    Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "{} cp {}:{}/. {}",
-            container_type, container_name, from, to
-        ))
-        .output()
+) -> Result<(String, String), ContainerError> {
+    shell_command(&format!(
+        "{} cp {}:{}/. {}",
+        container_type, container_name, from, to
+    ))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -255,7 +246,7 @@ async fn container_server(
 
     let proxy = DesktopEntryProxy::new(&connection).await?;
 
-    let _ = start_container(container_name, container_type, "");
+    let _ = start_container(container_name, container_type, "")?;
 
     let _ = run_on_container(
         &format!("-e RUST_LOG=trace {}", container_name),
@@ -281,13 +272,13 @@ async fn container_server(
         container_type,
         tmp_applications_from.to_str().unwrap(),
         tmp_applications_to.to_str().unwrap(),
-    );
+    )?;
     let _ = copy_from_container(
         container_name,
         container_type,
         tmp_icons_from.to_str().unwrap(),
         tmp_icons_to.to_str().unwrap(),
-    );
+    )?;
 
     if let Ok(read_dir) = read_dir(tmp_applications_to) {
         let entries = read_dir
@@ -313,6 +304,8 @@ async fn container_server(
                 log::error!("Error (entries): {:?}", e);
             }
         }
+    } else {
+        log::error!("Could not read applications directory")
     }
 
     if let Ok(read_dir) = read_dir(tmp_icons_to) {
@@ -339,6 +332,8 @@ async fn container_server(
                 log::error!("Error (icons): {:?}", e);
             }
         }
+    } else {
+        log::error!("Could not read icons directory");
     }
 
     let _ = remove_dir_all(tmp_applications_to);
