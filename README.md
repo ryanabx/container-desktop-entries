@@ -17,12 +17,17 @@ Requires: https://github.com/ryanabx/desktop-entry-daemon
     just install
     systemctl --user enable container-desktop-entries
 
+Reboot after installing!
+
 **UNINSTALL**
     
     systemctl --user disable container-desktop-entries
     just uninstall
 
+Reboot after uninstalling!
+
 > Note: You must install the client software on every guest container you want to receive desktop entries from!
+
 
 ## Build/Install/Uninstall (Client, on guest container)
 
