@@ -132,6 +132,24 @@ impl ContainerType {
         }
     }
 
+    fn format_name_regex_pattern(self) -> String {
+        match self {
+            ContainerType::Toolbox | ContainerType::Podman | ContainerType::Docker => {
+                r"(Name=\s?)(.*)".to_string()
+            }
+            _ => "".to_string(),
+        }
+    }
+
+    fn format_desktop_name(self, container_name: &str) -> String {
+        match self {
+            ContainerType::Toolbox => {
+                format!(r"Name=${{2}} ({})", container_name)
+            }
+            _ => "".to_string(), // TODO: Support more container types
+        }
+    }
+
     fn format_start(self, container_name: &str, container_args: &str) -> String {
         match self {
             ContainerType::Toolbox | ContainerType::Podman => {
@@ -477,7 +495,8 @@ fn container_client(container_name: &str, container_type: ContainerType) {
     let _ = create_dir_all(tmp_applications_dir);
     let _ = create_dir_all(tmp_icons_dir);
     let mut icon_names: Vec<String> = Vec::new();
-    let regex_handler = Regex::new(container_type.format_exec_regex_pattern().as_str()).unwrap();
+    let exec_regex = Regex::new(container_type.format_exec_regex_pattern().as_str()).unwrap();
+    let name_regex = Regex::new(container_type.format_name_regex_pattern().as_str()).unwrap();
     let mut entries_count = 0;
     for dirs in data_dirs {
         let app_dir = dirs.as_path().join(Path::new("applications"));
@@ -491,9 +510,13 @@ fn container_client(container_name: &str, container_type: ContainerType) {
                     if ty.is_file() && entry.path().extension().is_some_and(|ext| ext == "desktop")
                     {
                         if let Ok(txt) = read_to_string(&entry.path()) {
-                            let new_text = regex_handler.replace_all(
+                            let new_text = exec_regex.replace_all(
                                 &txt,
                                 container_type.format_desktop_exec(container_name),
+                            );
+                            let new_text = exec_regex.replace_all(
+                                &new_text,
+                                container_type.format_desktop_name(container_name),
                             );
                             match std::fs::write(
                                 tmp_applications_dir.join(entry.file_name()),

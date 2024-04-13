@@ -12,4 +12,4 @@ IOSchedulingClass=idle
 Slice=background.slice
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=desktop-entry-daemon.service
