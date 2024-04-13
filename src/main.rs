@@ -514,7 +514,7 @@ fn container_client(container_name: &str, container_type: ContainerType) {
                                 &txt,
                                 container_type.format_desktop_exec(container_name),
                             );
-                            let new_text = exec_regex.replace_all(
+                            let new_text = name_regex.replace_all(
                                 &new_text,
                                 container_type.format_desktop_name(container_name),
                             );
