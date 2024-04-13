@@ -32,6 +32,7 @@ BuildRequires:  just
 BuildRequires:  systemd-rpm-macros
 
 Requires:       dbus
+Requires:       desktop-entry-daemon
 
 %global _description %{expand:
 %{summary}.}
