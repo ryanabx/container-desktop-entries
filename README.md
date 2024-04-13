@@ -1,5 +1,10 @@
 # container-desktop-entries: Linux Desktop Entries for Containers!
 
+| | | |
+| - | - | - |
+| ![toolbox](res/toolbox.webp) | ![docker](res/docker.png) | ![podman](res/podman.png) |
+| | | |
+
 This project adds linux desktop entries for applications installed inside containers! Support for toolbox is implemented, but podman and docker will need some testing (feel free to submit PRs!)
 
 Requires: https://github.com/ryanabx/desktop-entry-daemon
