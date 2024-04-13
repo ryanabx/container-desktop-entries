@@ -52,6 +52,96 @@ enum Mode {
     Server,
 }
 
+#[derive(Debug, Clone, Copy)]
+enum ContainerType {
+    Podman,
+    Docker,
+    Toolbox,
+    Unknown,
+}
+
+impl From<String> for ContainerType {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "toolbox" => ContainerType::Toolbox,
+            "docker" => ContainerType::Docker,
+            "podman" => ContainerType::Podman,
+            _ => ContainerType::Unknown,
+        }
+    }
+}
+impl From<ContainerType> for String {
+    fn from(value: ContainerType) -> Self {
+        match value {
+            ContainerType::Toolbox => "toolbox".to_string(),
+            ContainerType::Docker => "docker".to_string(),
+            ContainerType::Podman => "podman".to_string(),
+            ContainerType::Unknown => "".to_string(),
+        }
+    }
+}
+
+impl ContainerType {
+    fn not_supported(self) -> bool {
+        matches!(
+            self,
+            ContainerType::Docker | ContainerType::Podman | ContainerType::Unknown
+        )
+    }
+
+    fn format_copy(self, container_name: &str, from: &str, to: &str) -> String {
+        match self {
+            ContainerType::Toolbox | ContainerType::Podman => {
+                format!("podman cp {}:{}/. {}", container_name, from, to)
+            }
+            _ => "".to_string(), // TODO: Support more container types
+        }
+    }
+
+    fn format_exec(self, container_name: &str, command: &str) -> String {
+        match self {
+            ContainerType::Toolbox | ContainerType::Podman => {
+                format!("podman container exec {} {}", container_name, command)
+            }
+            _ => "".to_string(), // TODO: Support more container types
+        }
+    }
+
+    fn format_exec_regex_pattern(self) -> String {
+        match self {
+            ContainerType::Toolbox | ContainerType::Podman | ContainerType::Docker => {
+                r"(Exec=\s?)(.*)".to_string()
+            }
+            _ => "".to_string(),
+        }
+    }
+
+    fn format_desktop_exec(self, container_name: &str) -> String {
+        match self {
+            ContainerType::Toolbox => {
+                format!(r"Exec=toolbox run -c {} \2", container_name)
+            }
+            ContainerType::Podman => {
+                // TODO: Currently not always functional
+                format!(
+                    r"Exec=sh -c 'podman container start {} && podman container exec {} \2'",
+                    container_name, container_name
+                )
+            }
+            _ => "".to_string(), // TODO: Support more container types
+        }
+    }
+
+    fn format_start(self, container_name: &str, container_args: &str) -> String {
+        match self {
+            ContainerType::Toolbox | ContainerType::Podman => {
+                format!("podman start {} {}", container_name, container_args)
+            }
+            _ => "".to_string(), // TODO: Support more container types
+        }
+    }
+}
+
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
@@ -80,7 +170,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .unwrap()
             .split_once(" ")
             .unwrap();
-        vec![(s.0.to_string(), s.1.to_string())]
+        vec![(s.0.to_string(), ContainerType::from(s.1.to_string()))]
     } else {
         if !Path::new(&env::var("HOME").unwrap())
             .join(Path::new(
@@ -108,21 +198,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let ss = s
                 .split_once(" ")
                 .expect("config invalid. make sure all lines are <<NAME>> <<TYPE>>");
-            (ss.0.to_string(), ss.1.to_string())
+            (ss.0.to_string(), ContainerType::from(ss.1.to_string()))
         })
         .collect::<Vec<_>>()
     };
 
     for (name, protocol) in names_and_protocols {
+        if protocol.not_supported() {
+            log::warn!("Protocol {:?} not supported currently. See https://github.com/ryanabx/container-desktop-entries to contribute.", protocol);
+        }
         match mode {
             Mode::Client => {
-                log::info!("Running as client: {} {}", name, protocol);
-                container_client(&name, &protocol);
+                log::info!("Running as client: {} {:?}", name, protocol);
+                container_client(&name, protocol);
             }
             #[cfg(feature = "server")]
             Mode::Server => {
-                log::info!("Running as server: {} {}", name, protocol);
-                if let Err(e) = container_server(&name, &protocol).await {
+                log::info!("Running as server: {} {:?}", name, protocol);
+                if let Err(e) = container_server(&name, protocol).await {
                     return Err(e);
                 }
             }
@@ -172,13 +265,10 @@ impl Error for ContainerError {
 #[cfg(feature = "server")]
 fn run_on_container(
     container_name: &str,
-    container_type: &str,
+    container_type: ContainerType,
     command: &str,
 ) -> Result<(String, String), ContainerError> {
-    shell_command(&format!(
-        "{} container exec {} {}",
-        container_type, container_name, command
-    ))
+    shell_command(&container_type.format_exec(container_name, command))
 }
 
 #[cfg(feature = "server")]
@@ -207,27 +297,21 @@ fn shell_command(command: &str) -> Result<(String, String), ContainerError> {
 #[cfg(feature = "server")]
 fn start_container(
     container_name: &str,
-    container_type: &str,
+    container_type: ContainerType,
     container_args: &str,
 ) -> Result<(String, String), ContainerError> {
-    shell_command(&format!(
-        "{} start {} {}",
-        container_type, container_name, container_args
-    ))
+    shell_command(&container_type.format_start(container_name, container_args))
 }
 
 #[cfg(feature = "server")]
 /// copy files on the container of choice
 fn copy_from_container(
     container_name: &str,
-    container_type: &str,
+    container_type: ContainerType,
     from: &str,
     to: &str,
 ) -> Result<(String, String), ContainerError> {
-    shell_command(&format!(
-        "{} cp {}:{}/. {}",
-        container_type, container_name, from, to
-    ))
+    shell_command(&container_type.format_copy(container_name, from, to))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -239,7 +323,7 @@ struct ClientData {
 #[cfg(feature = "server")]
 async fn container_server(
     container_name: &str,
-    container_type: &str,
+    container_type: ContainerType,
 ) -> Result<(), Box<dyn Error>> {
     let connection = Connection::session().await?;
 
@@ -252,7 +336,8 @@ async fn container_server(
         container_type,
         &format!(
             "container-desktop-entries-client --name-and-protocol '{} {}'",
-            container_name, container_type
+            container_name,
+            String::from(container_type)
         ),
     )?;
 
@@ -381,7 +466,7 @@ where
     Ok(())
 }
 
-fn container_client(container_name: &str, container_type: &str) {
+fn container_client(container_name: &str, container_type: ContainerType) {
     let xdg_basedirs = BaseDirectories::new().expect("could not get xdg basedirectories");
     let data_dirs = xdg_basedirs.get_data_dirs();
     log::trace!("xdg data dirs: {:?}", data_dirs);
@@ -392,7 +477,7 @@ fn container_client(container_name: &str, container_type: &str) {
     let _ = create_dir_all(tmp_applications_dir);
     let _ = create_dir_all(tmp_icons_dir);
     let mut icon_names: Vec<String> = Vec::new();
-    let regex_handler = Regex::new(r"(Exec=\s?)(.*)").unwrap();
+    let regex_handler = Regex::new(container_type.format_exec_regex_pattern().as_str()).unwrap();
     let mut entries_count = 0;
     for dirs in data_dirs {
         let app_dir = dirs.as_path().join(Path::new("applications"));
@@ -408,10 +493,7 @@ fn container_client(container_name: &str, container_type: &str) {
                         if let Ok(txt) = read_to_string(&entry.path()) {
                             let new_text = regex_handler.replace_all(
                                 &txt,
-                                format!(
-                                    r"Exec=sh -c '{} container start {} && {} container exec {} \2'",
-                                    container_type, container_name, container_type, container_name
-                                ),
+                                container_type.format_desktop_exec(container_name),
                             );
                             match std::fs::write(
                                 tmp_applications_dir.join(entry.file_name()),
