@@ -47,7 +47,7 @@ Reboot after uninstalling!
 
 Configuring clients to get entries from is done in `$HOME/.config/container-desktop-entries/containers.conf`:
 
-Example configuration:
+Example configuration (lines of [container name] [container type]):
 
     fedora-toolbox-39 toolbox
     fedora-toolbox-40 toolbox
