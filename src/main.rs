@@ -119,12 +119,12 @@ impl ContainerType {
     fn format_desktop_exec(self, container_name: &str) -> String {
         match self {
             ContainerType::Toolbox => {
-                format!(r"Exec=toolbox run -c {} $2", container_name)
+                format!(r"Exec=toolbox run -c {} ${{2}}", container_name)
             }
             ContainerType::Podman => {
                 // TODO: Currently not always functional
                 format!(
-                    r"Exec=sh -c 'podman container start {} && podman container exec {} $2'",
+                    r"Exec=sh -c 'podman container start {} && podman container exec {} ${{2}}'",
                     container_name, container_name
                 )
             }
