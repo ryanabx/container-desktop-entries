@@ -43,7 +43,7 @@ fn set_up_client(
         container_name,
         container_type,
         &format!(
-            "container-desktop-entries --name {} --protocol {}",
+            "RUST_LOG=debug container-desktop-entries --name {} --protocol {}",
             container_name,
             String::from(container_type)
         ),
