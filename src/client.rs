@@ -37,9 +37,11 @@ pub async fn client(
     let exec_regex = Regex::new(container_type.format_exec_regex_pattern().as_str()).unwrap();
     let name_regex = Regex::new(container_type.format_name_regex_pattern().as_str()).unwrap();
     // First, we look up all the desktop files
+    log::debug!("Paths before dedup: {:?}", default_paths());
     let mut paths = default_paths();
     paths.sort();
     paths.dedup();
+    log::debug!("Paths after dedup: {:?}", paths);
     for path in freedesktop_desktop_entry::Iter::new(paths) {
         // let path_src = PathSource::guess_from(&path);
         if let Ok(file_text) = read_to_string(&path) {
