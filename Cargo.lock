@@ -444,7 +444,6 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "xdg",
  "zbus",
 ]
 

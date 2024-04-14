@@ -40,13 +40,13 @@ BuildRequires:  just
 cat .vendor/config.toml >> .cargo/config
 
 %build
-cargo build --release --frozen --offline --no-default-features
+%cargo_build
 %{cargo_license_summary}
 %{cargo_license} > LICENSE.dependencies
 %{cargo_vendor_manifest}
 
 %install
-install -Dm0755 target/release/container-desktop-entries %{buildroot}/%{_bindir}/container-desktop-entries-client
+install -Dm0755 target/release/container-desktop-entries %{buildroot}/%{_bindir}/container-desktop-entries
 
 %if %{with check}
 %check
@@ -58,7 +58,7 @@ install -Dm0755 target/release/container-desktop-entries %{buildroot}/%{_bindir}
 %license LICENSE.dependencies
 # %%license cargo-vendor.txt
 %doc README.md
-%{_bindir}/%{name}
+%{_bindir}/container-desktop-entries
 
 %changelog
 %autochangelog

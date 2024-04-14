@@ -26,9 +26,9 @@ use zbus::proxy;
     assume_defaults = true
 )]
 trait DesktopEntry {
-    /// RegisterEntries method
-    fn register_entries(&self, entry_paths: &[&str]) -> zbus::Result<Vec<String>>;
+    /// RegisterEntry method
+    fn register_entry(&self, appid: &str, entry: &str) -> zbus::Result<bool>;
 
-    /// RegisterIcons method
-    fn register_icons(&self, icon_paths: &[&str], subpaths: &[&str]) -> zbus::Result<Vec<String>>;
+    /// RegisterIcon method
+    fn register_icon(&self, name: &str, data: &[u8]) -> zbus::Result<bool>;
 }
