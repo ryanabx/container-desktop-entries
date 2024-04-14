@@ -67,7 +67,7 @@ pub async fn client(
 
                 println!("{}", entry.to_string());
 
-                match proxy.register_entry(&entry.appid, &entry.to_string()).await {
+                match proxy.register_entry(&entry.appid, &file_text).await {
                     Ok(true) => {
                         log::info!("Daemon registered entry: {}", entry.appid);
                         if let Some(icon_name) = entry.icon() {
