@@ -39,15 +39,15 @@ pub async fn client(
     // First, we look up all the desktop files
     for path in freedesktop_desktop_entry::Iter::new(default_paths()) {
         // let path_src = PathSource::guess_from(&path);
-        if let Ok(mut file_text) = read_to_string(&path) {
+        if let Ok(file_text) = read_to_string(&path) {
             // run regex on it now
-            file_text = exec_regex
+            let file_text = exec_regex
                 .replace_all(
                     &file_text,
                     container_type.format_desktop_exec(container_name),
                 )
                 .to_string();
-            file_text = name_regex
+            let file_text = name_regex
                 .replace_all(
                     &file_text,
                     container_type.format_desktop_name(container_name),
