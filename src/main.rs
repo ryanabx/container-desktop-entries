@@ -68,8 +68,8 @@ impl ContainerType {
 
     fn format_exec(self, container_name: &str, command: &str) -> String {
         match self {
-            ContainerType::Toolbox | ContainerType::Podman => {
-                format!("podman container exec {} {}", container_name, command)
+            ContainerType::Toolbox => {
+                format!("toolbox run -c {} {}", container_name, command)
             }
             _ => "".to_string(), // TODO: Support more container types
         }
