@@ -1,5 +1,5 @@
 name := 'container-desktop-entries'
-client-name := 'container-desktop-entries-client'
+client-name := 'container-desktop-entries'
 
 rootdir := ''
 prefix := '/usr'
@@ -20,7 +20,7 @@ build *args:
     cargo build --release {{args}}
 
 build-client *args:
-    cargo build --release --no-default-features {{args}}
+    cargo build --release {{args}}
 
 install:
     install -Dm0755 {{exec-src}} {{exec-dst}}
