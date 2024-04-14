@@ -29,6 +29,8 @@ BuildRequires:  rustc
 BuildRequires:  cargo
 BuildRequires:  just
 
+Requires:       dbus
+
 %global _description %{expand:
 %{summary}.}
 
