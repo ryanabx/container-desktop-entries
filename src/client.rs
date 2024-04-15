@@ -99,5 +99,7 @@ pub async fn client(
             }
         }
     }
-    Ok(())
+    loop { // Busy wait until logging off, keeping the desktop entries alive
+        std::future::pending::<()>().await;
+    }
 }
