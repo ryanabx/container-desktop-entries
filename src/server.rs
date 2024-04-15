@@ -1,4 +1,7 @@
-use std::{io, process::Command};
+use std::{
+    io,
+    process::{self, Command},
+};
 
 use crate::ContainerType;
 
@@ -16,7 +19,7 @@ impl From<io::Error> for ClientSetupError {
     }
 }
 
-pub fn server(containers: Vec<(String, ContainerType)>) -> Result<(), ServerError> {
+pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), ServerError> {
     for (container_name, container_type) in containers {
         if container_type.not_supported() {
             log::error!(
@@ -29,7 +32,10 @@ pub fn server(containers: Vec<(String, ContainerType)>) -> Result<(), ServerErro
             log::error!("Error setting up client {}: {:?}", container_name, kind);
         }
     }
-    Ok(())
+    loop {
+        // Busy wait until logging off, keeping the desktop entries alive
+        std::future::pending::<()>().await;
+    }
 }
 
 fn set_up_client(
@@ -43,9 +49,10 @@ fn set_up_client(
         container_name,
         container_type,
         &format!(
-            "container-desktop-entries --name {} --protocol {}",
+            "container-desktop-entries -n {} -t {} -p {}",
             container_name,
-            String::from(container_type)
+            String::from(container_type),
+            process::id()
         ),
     )?;
     Ok(())
@@ -62,7 +69,7 @@ fn run_in_client(
     container_type: ContainerType,
     command: &str,
 ) -> Result<(), io::Error> {
-    shell_command(&container_type.format_exec(container_name, command), false)
+    shell_command(&container_type.format_exec(container_name, command), true)
 }
 
 fn shell_command(command: &str, wait_for_output: bool) -> Result<(), io::Error> {

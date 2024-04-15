@@ -31,6 +31,7 @@ impl From<freedesktop_icon_lookup::Error> for ClientError {
 pub async fn client(
     container_name: &str,
     container_type: ContainerType,
+    pid: u32,
 ) -> Result<(), ClientError> {
     let connection = Connection::session().await?;
     let proxy = DesktopEntryProxy::new(&connection).await?;
@@ -70,10 +71,7 @@ pub async fn client(
 
                 println!("{}", entry.to_string());
 
-                match proxy
-                    .register_entry(&entry.appid, &file_text, process::id())
-                    .await
-                {
+                match proxy.register_entry(&entry.appid, &file_text, pid).await {
                     Ok(_) => {
                         log::info!("Daemon registered entry: {}", entry.appid);
                         if let Some(icon_name) = entry.icon() {
@@ -82,11 +80,7 @@ pub async fn client(
                                     Some("png" | "svg") => {
                                         let file_bytes = read(icon_path).unwrap();
                                         match proxy
-                                            .register_icon(
-                                                icon_name,
-                                                file_bytes.as_slice(),
-                                                process::id(),
-                                            )
+                                            .register_icon(icon_name, file_bytes.as_slice(), pid)
                                             .await
                                         {
                                             Ok(_) => {
@@ -109,8 +103,5 @@ pub async fn client(
             }
         }
     }
-    loop {
-        // Busy wait until logging off, keeping the desktop entries alive
-        std::future::pending::<()>().await;
-    }
+    Ok(())
 }

@@ -13,20 +13,48 @@ mod server;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None, arg_required_else_help = true)]
 struct Args {
-    #[arg(short, long, conflicts_with = "name", conflicts_with = "protocol")]
+    #[arg(
+        short,
+        long,
+        conflicts_with = "name",
+        conflicts_with = "type_of_container",
+        conflicts_with = "pid"
+    )]
     /// Sets the program to run in server mode.
     server: bool,
     #[arg(short, long, requires = "server", value_name = "CONFIG_PATH")]
     /// [AS SERVER] Path to an alternate config for the program.
     /// Default is $HOME/.config/container-desktop-entries/containers.conf
     config: Option<String>,
-    #[arg(short, long, conflicts_with = "server", requires = "protocol")]
+    #[arg(
+        short,
+        long,
+        conflicts_with = "server",
+        requires = "type_of_container",
+        requires = "pid"
+    )]
     /// [AS CLIENT] Sets the container name for the client.
     name: Option<String>,
-    #[arg(short, long, conflicts_with = "server", requires = "name")]
+    #[arg(
+        short,
+        long,
+        conflicts_with = "server",
+        requires = "name",
+        requires = "pid"
+    )]
     /// [AS CLIENT] Sets the type of the container for the client.
     /// Valid here are (docker|podman|toolbox).
-    protocol: Option<String>,
+    type_of_container: Option<String>,
+    #[arg(
+        short,
+        long,
+        conflicts_with = "server",
+        requires = "name",
+        requires = "type_of_container"
+    )]
+    /// [AS CLIENT] Sets the host pid for container-desktop-entries.
+    /// This is so the daemon can follow the host process
+    pid: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -205,10 +233,12 @@ async fn main() -> Result<(), Error> {
             })
             .collect::<Vec<_>>();
 
-        server::server(config_data)?;
-    } else if let (Some(name), Some(protocol)) = (args.name, args.protocol) {
-        log::info!("Running as client! {} {}", name, protocol);
-        client::client(&name, ContainerType::from(protocol)).await?;
+        server::server(config_data).await?;
+    } else if let (Some(name), Some(protocol), Some(pid)) =
+        (args.name, args.type_of_container, args.pid)
+    {
+        log::info!("Running as client! {} {} {}", name, protocol, pid);
+        client::client(&name, ContainerType::from(protocol), pid).await?;
     }
 
     Ok(())
