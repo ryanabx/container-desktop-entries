@@ -99,7 +99,8 @@ pub async fn client(
             }
         }
     }
-    loop { // Busy wait until logging off, keeping the desktop entries alive
+    loop {
+        // Busy wait until logging off, keeping the desktop entries alive
         std::future::pending::<()>().await;
     }
 }
