@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display, io, process::Command};
+use std::{io, process::Command};
 
 use crate::ContainerType;
 
@@ -7,12 +7,12 @@ pub enum ServerError {}
 
 #[derive(Debug)]
 pub enum ClientSetupError {
-    Container(ContainerError),
+    IO(io::Error),
 }
 
-impl From<ContainerError> for ClientSetupError {
-    fn from(value: ContainerError) -> Self {
-        ClientSetupError::Container(value)
+impl From<io::Error> for ClientSetupError {
+    fn from(value: io::Error) -> Self {
+        ClientSetupError::IO(value)
     }
 }
 
@@ -51,44 +51,8 @@ fn set_up_client(
     Ok(())
 }
 
-#[derive(Debug)]
-pub enum ContainerError {
-    IO(io::Error),
-    CommandNotFound,
-}
-
-impl Display for ContainerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ContainerError::IO(e) => {
-                write!(f, "IO: {}", e)
-            }
-            ContainerError::CommandNotFound => {
-                write!(f, "Command for container not found")
-            }
-        }
-    }
-}
-
-impl Error for ContainerError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
-    }
-
-    fn description(&self) -> &str {
-        "description() is deprecated; use Display"
-    }
-
-    fn cause(&self) -> Option<&dyn Error> {
-        self.source()
-    }
-}
-
 /// start the client
-fn start_client(
-    container_name: &str,
-    container_type: ContainerType,
-) -> Result<(String, String), ContainerError> {
+fn start_client(container_name: &str, container_type: ContainerType) -> Result<(), io::Error> {
     shell_command(&container_type.format_start(container_name))
 }
 
@@ -97,28 +61,12 @@ fn run_in_client(
     container_name: &str,
     container_type: ContainerType,
     command: &str,
-) -> Result<(String, String), ContainerError> {
+) -> Result<(), io::Error> {
     shell_command(&container_type.format_exec(container_name, command))
 }
 
-fn shell_command(command: &str) -> Result<(String, String), ContainerError> {
+fn shell_command(command: &str) -> Result<(), io::Error> {
     log::debug!("Full command: sh -c '{}'", command);
-    let out = Command::new("sh").arg("-c").arg(command).output();
-    match out {
-        Ok(ref o) => {
-            let std_out = String::from_utf8(o.stdout.clone()).unwrap();
-            let std_err = String::from_utf8(o.stderr.clone()).unwrap();
-            log::debug!("std_out: '{:?}'", std_out);
-            log::debug!("std_err: '{:?}'", std_err);
-            if std_err.contains("command not found") || std_out.contains("command not found") {
-                Err(ContainerError::CommandNotFound)
-            } else {
-                Ok((std_out, std_err))
-            }
-        }
-        Err(ref e) => {
-            log::error!("error: {:?}", e);
-            Err(ContainerError::IO(out.unwrap_err()))
-        }
-    }
+    let _ = Command::new("sh").arg("-c").arg(command).spawn()?;
+    Ok(())
 }
