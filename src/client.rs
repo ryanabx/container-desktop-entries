@@ -1,7 +1,10 @@
 use freedesktop_desktop_entry::{default_paths, DesktopEntry};
 use freedesktop_icon_lookup::Cache;
 use regex::Regex;
-use std::fs::{read, read_to_string};
+use std::{
+    fs::{read, read_to_string},
+    process,
+};
 use zbus::Connection;
 
 use crate::{desktop_entry::DesktopEntryProxy, ContainerType};
@@ -67,7 +70,10 @@ pub async fn client(
 
                 println!("{}", entry.to_string());
 
-                match proxy.register_entry(&entry.appid, &file_text).await {
+                match proxy
+                    .register_entry(&entry.appid, &file_text, process::id())
+                    .await
+                {
                     Ok(_) => {
                         log::info!("Daemon registered entry: {}", entry.appid);
                         if let Some(icon_name) = entry.icon() {
@@ -76,7 +82,11 @@ pub async fn client(
                                     Some("png" | "svg") => {
                                         let file_bytes = read(icon_path).unwrap();
                                         match proxy
-                                            .register_icon(icon_name, file_bytes.as_slice())
+                                            .register_icon(
+                                                icon_name,
+                                                file_bytes.as_slice(),
+                                                process::id(),
+                                            )
                                             .await
                                         {
                                             Ok(_) => {
