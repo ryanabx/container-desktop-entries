@@ -4,7 +4,7 @@ Requires=desktop-entry-daemon.service
 After=desktop-entry-daemon.service
 
 [Service]
-Type=oneshot
+Type=simple
 Environment="RUST_LOG=debug"
 ExecStart=container-desktop-entries --server
 SuccessExitStatus=DATAERR
