@@ -11,9 +11,9 @@
 //! This type implements the [D-Bus standard interfaces], (`org.freedesktop.DBus.*`) for which the
 //! following zbus API can be used:
 //!
-//! * [`zbus::fdo::IntrospectableProxy`]
 //! * [`zbus::fdo::PropertiesProxy`]
 //! * [`zbus::fdo::PeerProxy`]
+//! * [`zbus::fdo::IntrospectableProxy`]
 //!
 //! Consequently `zbus-xmlgen` did not generate code for the above interfaces.
 //!
@@ -26,9 +26,20 @@ use zbus::proxy;
     assume_defaults = true
 )]
 trait DesktopEntry {
+    /// RegisterChangeHandler method
+    fn register_change_handler(&self) -> zbus::Result<()>;
+
     /// RegisterEntry method
-    fn register_entry(&self, appid: &str, entry: &str) -> zbus::Result<bool>;
+    fn register_entry(&self, appid: &str, entry: &str) -> zbus::Result<()>;
 
     /// RegisterIcon method
-    fn register_icon(&self, name: &str, data: &[u8]) -> zbus::Result<bool>;
+    fn register_icon(&self, name: &str, data: &[u8]) -> zbus::Result<()>;
+
+    /// EntryChanged signal
+    #[zbus(signal)]
+    fn entry_changed(&self, appid: &str) -> zbus::Result<()>;
+
+    /// IconChanged signal
+    #[zbus(signal)]
+    fn icon_changed(&self, icon_name: &str) -> zbus::Result<()>;
 }

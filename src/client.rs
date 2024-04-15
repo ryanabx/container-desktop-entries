@@ -68,7 +68,7 @@ pub async fn client(
                 println!("{}", entry.to_string());
 
                 match proxy.register_entry(&entry.appid, &file_text).await {
-                    Ok(true) => {
+                    Ok(_) => {
                         log::info!("Daemon registered entry: {}", entry.appid);
                         if let Some(icon_name) = entry.icon() {
                             if let Some(icon_path) = icon_lookup.lookup(icon_name, None) {
@@ -79,14 +79,8 @@ pub async fn client(
                                             .register_icon(icon_name, file_bytes.as_slice())
                                             .await
                                         {
-                                            Ok(true) => {
+                                            Ok(_) => {
                                                 log::info!("Daemon registered icon: {}", icon_name);
-                                            }
-                                            Ok(false) => {
-                                                log::error!(
-                                                    "DBus returned false for icon: {}",
-                                                    icon_name
-                                                );
                                             }
                                             Err(e) => {
                                                 log::error!("Error (icons): {:?}", e);
@@ -97,9 +91,6 @@ pub async fn client(
                                 }
                             }
                         }
-                    }
-                    Ok(false) => {
-                        log::error!("DBus returned false for entry: {}", entry.appid);
                     }
                     Err(e) => {
                         log::error!("Error (entry): {}", e);
