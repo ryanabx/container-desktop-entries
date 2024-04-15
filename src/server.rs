@@ -53,7 +53,7 @@ fn set_up_client(
 
 /// start the client
 fn start_client(container_name: &str, container_type: ContainerType) -> Result<(), io::Error> {
-    shell_command(&container_type.format_start(container_name))
+    shell_command(&container_type.format_start(container_name), true)
 }
 
 /// run a command on the container of choice
@@ -62,11 +62,30 @@ fn run_in_client(
     container_type: ContainerType,
     command: &str,
 ) -> Result<(), io::Error> {
-    shell_command(&container_type.format_exec(container_name, command))
+    shell_command(&container_type.format_exec(container_name, command), false)
 }
 
-fn shell_command(command: &str) -> Result<(), io::Error> {
+fn shell_command(command: &str, wait_for_output: bool) -> Result<(), io::Error> {
     log::debug!("Full command: sh -c '{}'", command);
-    let _ = Command::new("sh").arg("-c").arg(command).spawn();
+    if wait_for_output {
+        let out = Command::new("sh")
+            .arg("-c")
+            .arg(command)
+            .output()
+            .expect(&format!("Command {} failed", command));
+        log::debug!(
+            "Output completed! stdout: '{}', stderr: '{}'",
+            String::from_utf8(out.stdout).unwrap(),
+            String::from_utf8(out.stderr).unwrap()
+        );
+    } else {
+        let child_handle = Command::new("sh")
+            .arg("-c")
+            .arg(command)
+            .spawn()
+            .expect(&format!("Command {} failed", command));
+        log::debug!("Started child process with pid {}", child_handle.id());
+    }
+
     Ok(())
 }
