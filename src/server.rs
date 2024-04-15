@@ -67,6 +67,6 @@ fn run_in_client(
 
 fn shell_command(command: &str) -> Result<(), io::Error> {
     log::debug!("Full command: sh -c '{}'", command);
-    let _ = Command::new("sh").arg("-c").arg(command).spawn()?;
+    let _ = Command::new("sh").arg("-c").arg(command).spawn();
     Ok(())
 }
