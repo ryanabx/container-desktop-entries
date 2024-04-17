@@ -49,10 +49,9 @@ fn set_up_client(
         container_name,
         container_type,
         &format!(
-            "container-desktop-entries -n {} -t {} -p {}",
+            "container-desktop-entries -n {} -t {}",
             container_name,
-            String::from(container_type),
-            process::id()
+            String::from(container_type)
         ),
     )?;
     Ok(())
@@ -69,7 +68,7 @@ fn run_in_client(
     container_type: ContainerType,
     command: &str,
 ) -> Result<(), io::Error> {
-    shell_command(&container_type.format_exec(container_name, command), true)
+    shell_command(&container_type.format_exec(container_name, command), false)
 }
 
 fn shell_command(command: &str, wait_for_output: bool) -> Result<(), io::Error> {

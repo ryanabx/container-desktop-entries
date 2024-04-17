@@ -20,20 +20,16 @@
 //! [Writing a client proxy]: https://dbus2.github.io/zbus/client.html
 //! [D-Bus standard interfaces]: https://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces,
 use zbus::proxy;
-#[proxy(
-    interface = "net.ryanabx.DesktopEntry",
-    default_path = "/net/ryanabx/DesktopEntry",
-    assume_defaults = true
-)]
+#[proxy(interface = "net.ryanabx.DesktopEntry", default_path = "/net/ryanabx/DesktopEntry", assume_defaults = true)]
 trait DesktopEntry {
     /// RegisterChangeHandler method
     fn register_change_handler(&self, pid: u32) -> zbus::Result<()>;
 
     /// RegisterEntry method
-    fn register_entry(&self, appid: &str, entry: &str, pid: u32) -> zbus::Result<()>;
+    fn register_entry(&self, appid: &str, entry: &str) -> zbus::Result<()>;
 
     /// RegisterIcon method
-    fn register_icon(&self, name: &str, data: &[u8], pid: u32) -> zbus::Result<()>;
+    fn register_icon(&self, name: &str, data: &[u8]) -> zbus::Result<()>;
 
     /// EntryChanged signal
     #[zbus(signal)]
