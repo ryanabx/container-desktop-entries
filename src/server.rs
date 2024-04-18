@@ -115,6 +115,10 @@ async fn set_up_client(
     for entry_path in fs::read_dir(to_path.join("applications")).unwrap() {
         let path_buf = entry_path.unwrap().path();
         log::debug!("Looking at path: {:?}", path_buf);
+        if !path_buf.exists() {
+            log::warn!("Path {:?} doesn't exist!",path_buf);
+            continue;
+        }
         match read_to_string(&path_buf) {
             Ok(file_text) => {
                 // run regex on it now
