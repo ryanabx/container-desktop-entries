@@ -7,7 +7,6 @@ After=desktop-entry-daemon.service
 Type=simple
 Environment="RUST_LOG=debug"
 ExecStart=container-desktop-entries
-RuntimeDirectory=container-desktop-entries
 Slice=session.slice
 
 [Install]

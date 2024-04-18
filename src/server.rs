@@ -47,6 +47,7 @@ pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), Serv
             log::error!("Error setting up client {}: {:?}", container_name, kind);
         }
     }
+    let _ = fs::remove_dir_all(Path::new("/tmp/container-desktop-entries/"));
     loop {
         // Busy wait until logging off, keeping the desktop entries alive
         std::future::pending::<()>().await;
@@ -59,15 +60,8 @@ async fn set_up_client(
 ) -> Result<(), ClientSetupError> {
     // Start client if client is not running
     start_client(container_name, container_type)?;
-    let to_path_str = match env::var("RUNTIME_DIRECTORY") {
-        Ok(h) => h,
-        Err(_) => {
-            log::error!("RUNTIME_DIRECTORY NOT FOUND. Make sure you're using the service!");
-            panic!()
-        }
-    };
 
-    let to_path = Path::new(&to_path_str);
+    let to_path = Path::new("/tmp/container-desktop-entries/");
     if !to_path.exists() {
         log::warn!(
             "Runtime directory {} does not exist! Attempting to create directory manually...",
@@ -119,9 +113,9 @@ async fn set_up_client(
     let name_regex = Regex::new(container_type.format_name_regex_pattern().as_str()).unwrap();
 
     for entry_path in fs::read_dir(to_path.join("applications")).unwrap() {
-        let path = entry_path.unwrap().path();
-        log::debug!("Looking at path: {:?}", path);
-        match read_to_string(&path) {
+        let path_buf = entry_path.unwrap().path();
+        log::debug!("Looking at path: {:?}", path_buf);
+        match read_to_string(&path_buf) {
             Ok(file_text) => {
                 // run regex on it now
                 let file_text = exec_regex
@@ -137,7 +131,7 @@ async fn set_up_client(
                     )
                     .to_string();
 
-                match DesktopEntry::decode(&path, &file_text) {
+                match DesktopEntry::decode(&path_buf, &file_text) {
                     Ok(entry) => {
                         // We have a valid desktop entry
                         if entry.no_display() {
@@ -197,7 +191,7 @@ async fn set_up_client(
             Err(e) => {
                 log::error!(
                     "Could not read path {:?} to string. Reason: {}",
-                    path,
+                    path_buf,
                     e.to_string()
                 );
             }
