@@ -121,61 +121,85 @@ async fn set_up_client(
     for entry_path in fs::read_dir(to_path.join("applications")).unwrap() {
         let path = entry_path.unwrap().path();
         log::debug!("Looking at path: {:?}", path);
-        if let Ok(file_text) = read_to_string(&path) {
-            // run regex on it now
-            let file_text = exec_regex
-                .replace_all(
-                    &file_text,
-                    container_type.format_desktop_exec(container_name),
-                )
-                .to_string();
-            let file_text = name_regex
-                .replace_all(
-                    &file_text,
-                    container_type.format_desktop_name(container_name),
-                )
-                .to_string();
+        match read_to_string(&path) {
+            Ok(file_text) => {
+                // run regex on it now
+                let file_text = exec_regex
+                    .replace_all(
+                        &file_text,
+                        container_type.format_desktop_exec(container_name),
+                    )
+                    .to_string();
+                let file_text = name_regex
+                    .replace_all(
+                        &file_text,
+                        container_type.format_desktop_name(container_name),
+                    )
+                    .to_string();
 
-            if let Ok(entry) = DesktopEntry::decode(&path, &file_text) {
-                // We have a valid desktop entry
-                if entry.no_display() {
-                    continue; // We don't want to push NoDisplay entries into our host
-                }
+                match DesktopEntry::decode(&path, &file_text) {
+                    Ok(entry) => {
+                        // We have a valid desktop entry
+                        if entry.no_display() {
+                            continue; // We don't want to push NoDisplay entries into our host
+                        }
 
-                match proxy.register_entry(&entry.appid, &file_text).await {
-                    Ok(_) => {
-                        log::info!("Daemon registered entry: {}", entry.appid);
-                        if let Some(icon_name) = entry.icon() {
-                            if let Some(icon_path) = lookup_icon(
-                                icon_name,
-                                &to_path.join("icons"),
-                                &to_path.join("pixmaps"),
-                            ) {
-                                log::debug!("Found icon path that matches! {:?}", icon_path);
-                                match icon_path.extension().map(|p| p.to_str().unwrap()) {
-                                    Some("png" | "svg") => {
-                                        let file_bytes = read(icon_path).unwrap();
-                                        match proxy
-                                            .register_icon(icon_name, file_bytes.as_slice())
-                                            .await
-                                        {
-                                            Ok(_) => {
-                                                log::info!("Daemon registered icon: {}", icon_name);
+                        match proxy.register_entry(&entry.appid, &file_text).await {
+                            Ok(_) => {
+                                log::info!("Daemon registered entry: {}", entry.appid);
+                                if let Some(icon_name) = entry.icon() {
+                                    if let Some(icon_path) = lookup_icon(
+                                        icon_name,
+                                        &to_path.join("icons"),
+                                        &to_path.join("pixmaps"),
+                                    ) {
+                                        log::debug!(
+                                            "Found icon path that matches! {:?}",
+                                            icon_path
+                                        );
+                                        match icon_path.extension().map(|p| p.to_str().unwrap()) {
+                                            Some("png" | "svg") => {
+                                                let file_bytes = read(icon_path).unwrap();
+                                                match proxy
+                                                    .register_icon(icon_name, file_bytes.as_slice())
+                                                    .await
+                                                {
+                                                    Ok(_) => {
+                                                        log::info!(
+                                                            "Daemon registered icon: {}",
+                                                            icon_name
+                                                        );
+                                                    }
+                                                    Err(e) => {
+                                                        log::error!("Error (icons): {:?}", e);
+                                                    }
+                                                }
                                             }
-                                            Err(e) => {
-                                                log::error!("Error (icons): {:?}", e);
-                                            }
+                                            _ => {}
                                         }
                                     }
-                                    _ => {}
                                 }
+                            }
+                            Err(e) => {
+                                log::error!("Error (entry): {}", e);
                             }
                         }
                     }
                     Err(e) => {
-                        log::error!("Error (entry): {}", e);
+                        log::error!(
+                            "Could not read as valid desktop entry '{}' reason: {}",
+                            file_text,
+                            e.to_string()
+                        );
                     }
                 }
+            }
+            Err(e) => {
+                log::error!(
+                    "Could not read path {:?} to string. Reason: {}",
+                    path,
+                    e.to_string()
+                );
             }
         }
     }
