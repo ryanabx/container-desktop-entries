@@ -35,8 +35,14 @@ impl From<zbus::Error> for ClientSetupError {
 }
 
 pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), ServerError> {
-    let to_path =
-        Path::new(&env::var("HOME").unwrap()).join(Path::new(".cache/container-desktop-entries/"));
+    let home = match env::var("RUNTIME_DIRECTORY") {
+        Ok(h) => h,
+        Err(_) => {
+            log::error!("RUNTIME_DIRECTORY NOT FOUND. Make sure you're using the service!");
+            panic!()
+        }
+    };
+    let to_path = Path::new(&home).join(Path::new(".cache/container-desktop-entries/"));
     for (container_name, container_type) in containers {
         if container_type.not_supported() {
             log::error!(
@@ -209,9 +215,9 @@ async fn set_up_client(
             }
         }
     }
-    // let _ = fs::remove_dir_all(&to_path.join("applications"));
-    // let _ = fs::remove_dir_all(&to_path.join("icons"));
-    // let _ = fs::remove_dir_all(&to_path.join("pixmaps"));
+    let _ = fs::remove_dir_all(&to_path.join("applications"));
+    let _ = fs::remove_dir_all(&to_path.join("icons"));
+    let _ = fs::remove_dir_all(&to_path.join("pixmaps"));
     Ok(())
 }
 
