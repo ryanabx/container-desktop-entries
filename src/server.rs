@@ -35,6 +35,8 @@ impl From<zbus::Error> for ClientSetupError {
 }
 
 pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), ServerError> {
+    let to_path =
+        Path::new(&env::var("HOME").unwrap()).join(Path::new(".cache/container-desktop-entries/"));
     for (container_name, container_type) in containers {
         if container_type.not_supported() {
             log::error!(
@@ -43,11 +45,11 @@ pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), Serv
             );
             continue;
         }
-        if let Err(kind) = set_up_client(&container_name, container_type).await {
+        if let Err(kind) = set_up_client(&container_name, container_type, &to_path).await {
             log::error!("Error setting up client {}: {:?}", container_name, kind);
         }
     }
-    let _ = fs::remove_dir_all(Path::new("/tmp/container-desktop-entries/"));
+    // let _ = fs::remove_dir_all(&to_path);
     loop {
         // Busy wait until logging off, keeping the desktop entries alive
         std::future::pending::<()>().await;
@@ -57,11 +59,10 @@ pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), Serv
 async fn set_up_client(
     container_name: &str,
     container_type: ContainerType,
+    to_path: &Path,
 ) -> Result<(), ClientSetupError> {
     // Start client if client is not running
     start_client(container_name, container_type)?;
-
-    let to_path = Path::new("/tmp/container-desktop-entries/");
     if !to_path.exists() {
         log::warn!(
             "Runtime directory {} does not exist! Attempting to create directory manually...",
@@ -81,11 +82,17 @@ async fn set_up_client(
     let _ = fs::create_dir(&to_path.join("icons"));
     let _ = fs::create_dir(&to_path.join("pixmaps"));
     // Find the data dirs and iterate over them
-    for x in run_in_client(container_name, container_type, "echo $XDG_DATA_DIRS", true)?
-        .unwrap()
-        .split(":")
-        .map(|p| Path::new(p))
-    {
+    let data_dirs = run_in_client(
+        container_name,
+        container_type,
+        "env | grep XDG_DATA_DIRS | cut -d'=' -f2",
+        true,
+    )?
+    .unwrap()
+    .trim()
+    .to_string();
+    log::debug!("Data dirs: '{}'", data_dirs);
+    for x in data_dirs.split(":").map(|p| Path::new(p)) {
         copy_from_client(
             container_name,
             container_type,
@@ -116,7 +123,7 @@ async fn set_up_client(
         let path_buf = entry_path.unwrap().path();
         log::debug!("Looking at path: {:?}", path_buf);
         if !path_buf.exists() {
-            log::warn!("Path {:?} doesn't exist!",path_buf);
+            log::warn!("Path {:?} doesn't exist!", path_buf);
             continue;
         }
         match read_to_string(&path_buf) {
@@ -139,6 +146,7 @@ async fn set_up_client(
                     Ok(entry) => {
                         // We have a valid desktop entry
                         if entry.no_display() {
+                            log::warn!("No display entry");
                             continue; // We don't want to push NoDisplay entries into our host
                         }
 
@@ -201,9 +209,9 @@ async fn set_up_client(
             }
         }
     }
-    let _ = fs::remove_dir_all(&to_path.join("applications"));
-    let _ = fs::remove_dir_all(&to_path.join("icons"));
-    let _ = fs::remove_dir_all(&to_path.join("pixmaps"));
+    // let _ = fs::remove_dir_all(&to_path.join("applications"));
+    // let _ = fs::remove_dir_all(&to_path.join("icons"));
+    // let _ = fs::remove_dir_all(&to_path.join("pixmaps"));
     Ok(())
 }
 
@@ -299,7 +307,7 @@ fn shell_command(command: &str, wait_for_output: bool) -> Result<Option<String>,
     if wait_for_output {
         let out = Command::new("sh")
             .arg("-c")
-            .arg(command)
+            .arg(format!("{}", command))
             .output()
             .expect(&format!("Command {} failed", command));
         log::debug!(
@@ -311,7 +319,7 @@ fn shell_command(command: &str, wait_for_output: bool) -> Result<Option<String>,
     } else {
         let child_handle = Command::new("sh")
             .arg("-c")
-            .arg(command)
+            .arg(format!("{}", command))
             .spawn()
             .expect(&format!("Command {} failed", command));
         log::debug!("Started child process with pid {}", child_handle.id());

@@ -58,7 +58,7 @@ impl ContainerType {
         match self {
             ContainerType::Toolbox => {
                 format!(
-                    "podman container cp {}:{}/. {}",
+                    "podman container cp {}:{}/. {}/",
                     container_name,
                     from.to_str().unwrap(),
                     to.to_str().unwrap()
@@ -122,8 +122,8 @@ impl ContainerType {
 
     fn format_start(self, container_name: &str) -> String {
         match self {
-            ContainerType::Toolbox | ContainerType::Podman => {
-                format!("podman start {}", container_name)
+            ContainerType::Toolbox => {
+                format!("toolbox run -c {} echo 'Started'", container_name)
             }
             _ => "".to_string(), // TODO: Support more container types
         }
