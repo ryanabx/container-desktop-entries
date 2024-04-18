@@ -7,9 +7,8 @@ After=desktop-entry-daemon.service
 Type=simple
 Environment="RUST_LOG=debug"
 ExecStart=container-desktop-entries
-SuccessExitStatus=DATAERR
-IOSchedulingClass=idle
-Slice=background.slice
+RuntimeDirectory=container-desktop-entries
+Slice=session.slice
 
 [Install]
 WantedBy=desktop-entry-daemon.service
