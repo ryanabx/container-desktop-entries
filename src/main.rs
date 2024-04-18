@@ -1,11 +1,9 @@
 use clap::Parser;
-use client::ClientError;
 use server::ServerError;
 use std::{env, io};
 
 use std::{fs::read_to_string, path::Path};
 
-mod client;
 mod desktop_entry;
 mod server;
 
@@ -13,25 +11,10 @@ mod server;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None, arg_required_else_help = true)]
 struct Args {
-    #[arg(
-        short,
-        long,
-        conflicts_with = "name",
-        conflicts_with = "type_of_container"
-    )]
-    /// Sets the program to run in server mode.
-    server: bool,
     #[arg(short, long, requires = "server", value_name = "CONFIG_PATH")]
     /// [AS SERVER] Path to an alternate config for the program.
     /// Default is $HOME/.config/container-desktop-entries/containers.conf
     config: Option<String>,
-    #[arg(short, long, conflicts_with = "server", requires = "type_of_container")]
-    /// [AS CLIENT] Sets the container name for the client.
-    name: Option<String>,
-    #[arg(short, long, conflicts_with = "server", requires = "name")]
-    /// [AS CLIENT] Sets the type of the container for the client.
-    /// Valid here are (docker|podman|toolbox).
-    type_of_container: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -69,6 +52,20 @@ impl ContainerType {
             self,
             ContainerType::Docker | ContainerType::Podman | ContainerType::Unknown
         )
+    }
+
+    fn format_copy(self, container_name: &str, from: &Path, to: &Path) -> String {
+        match self {
+            ContainerType::Toolbox => {
+                format!(
+                    "podman container cp {}:{}/. {}",
+                    container_name,
+                    from.to_str().unwrap(),
+                    to.to_str().unwrap()
+                )
+            }
+            _ => "".to_string(), // TODO: Support more container types
+        }
     }
 
     fn format_exec(self, container_name: &str, command: &str) -> String {
@@ -136,7 +133,6 @@ impl ContainerType {
 #[derive(Debug)]
 enum Error {
     Server(ServerError),
-    Client(ClientError),
     IO(io::Error),
     NoEnv(std::env::VarError),
 }
@@ -144,12 +140,6 @@ enum Error {
 impl From<ServerError> for Error {
     fn from(value: ServerError) -> Self {
         Error::Server(value)
-    }
-}
-
-impl From<ClientError> for Error {
-    fn from(value: ClientError) -> Self {
-        Error::Client(value)
     }
 }
 
@@ -176,45 +166,40 @@ async fn main() -> Result<(), Error> {
 
     let args = Args::parse();
 
-    if args.server {
-        let default_path_str = format!(
-            "{}/.config/container-desktop-entries/containers.conf",
-            env::var("HOME")?
-        );
-        let conf_path = match args.config.as_ref() {
-            None => Path::new(&default_path_str),
-            Some(path) => Path::new(path),
-        };
-        match conf_path.try_exists() {
-            Ok(false) | Err(_) => {
-                log::error!("Cannot find config at '{:?}'", conf_path);
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    format!(
-                        "Config path does not exist. Consider creating a config at '{:?}'",
-                        conf_path
-                    ),
-                )
-                .into());
-            }
-            _ => {}
+    let default_path_str = format!(
+        "{}/.config/container-desktop-entries/containers.conf",
+        env::var("HOME")?
+    );
+    let conf_path = match args.config.as_ref() {
+        None => Path::new(&default_path_str),
+        Some(path) => Path::new(path),
+    };
+    match conf_path.try_exists() {
+        Ok(false) | Err(_) => {
+            log::error!("Cannot find config at '{:?}'", conf_path);
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!(
+                    "Config path does not exist. Consider creating a config at '{:?}'",
+                    conf_path
+                ),
+            )
+            .into());
         }
-        log::info!("Running as server! Getting config at '{:?}'", conf_path);
-        let config_data = read_to_string(conf_path)?
-            .lines()
-            .map(|s| {
-                let ss = s
-                    .split_once(" ")
-                    .expect("Config invalid. make sure all lines are <<NAME>> <<TYPE>>");
-                (ss.0.to_string(), ContainerType::from(ss.1.to_string()))
-            })
-            .collect::<Vec<_>>();
-
-        server::server(config_data).await?;
-    } else if let (Some(name), Some(protocol)) = (args.name, args.type_of_container) {
-        log::info!("Running as client! {} {}", name, protocol);
-        client::client(&name, ContainerType::from(protocol)).await?;
+        _ => {}
     }
+    log::info!("Running as server! Getting config at '{:?}'", conf_path);
+    let config_data = read_to_string(conf_path)?
+        .lines()
+        .map(|s| {
+            let ss = s
+                .split_once(" ")
+                .expect("Config invalid. make sure all lines are <<NAME>> <<TYPE>>");
+            (ss.0.to_string(), ContainerType::from(ss.1.to_string()))
+        })
+        .collect::<Vec<_>>();
+
+    server::server(config_data).await?;
 
     Ok(())
 }

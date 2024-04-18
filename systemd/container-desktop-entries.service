@@ -6,7 +6,7 @@ After=desktop-entry-daemon.service
 [Service]
 Type=simple
 Environment="RUST_LOG=debug"
-ExecStart=container-desktop-entries --server
+ExecStart=container-desktop-entries
 SuccessExitStatus=DATAERR
 IOSchedulingClass=idle
 Slice=background.slice

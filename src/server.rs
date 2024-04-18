@@ -1,9 +1,17 @@
 use std::{
+    env,
+    fs::{self, create_dir, read, read_to_string},
     io,
+    path::{Path, PathBuf},
     process::{self, Command},
 };
 
-use crate::ContainerType;
+use freedesktop_desktop_entry::DesktopEntry;
+use regex::Regex;
+use walkdir::WalkDir;
+use zbus::Connection;
+
+use crate::{desktop_entry::DesktopEntryProxy, ContainerType};
 
 #[derive(Debug)]
 pub enum ServerError {}
@@ -11,11 +19,18 @@ pub enum ServerError {}
 #[derive(Debug)]
 pub enum ClientSetupError {
     IO(io::Error),
+    Zbus(zbus::Error),
 }
 
 impl From<io::Error> for ClientSetupError {
     fn from(value: io::Error) -> Self {
         ClientSetupError::IO(value)
+    }
+}
+
+impl From<zbus::Error> for ClientSetupError {
+    fn from(value: zbus::Error) -> Self {
+        ClientSetupError::Zbus(value)
     }
 }
 
@@ -28,7 +43,7 @@ pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), Serv
             );
             continue;
         }
-        if let Err(kind) = set_up_client(&container_name, container_type) {
+        if let Err(kind) = set_up_client(&container_name, container_type).await {
             log::error!("Error setting up client {}: {:?}", container_name, kind);
         }
     }
@@ -38,27 +53,199 @@ pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), Serv
     }
 }
 
-fn set_up_client(
+async fn set_up_client(
     container_name: &str,
     container_type: ContainerType,
 ) -> Result<(), ClientSetupError> {
     // Start client if client is not running
     start_client(container_name, container_type)?;
-    // Run client's container-desktop-entries
-    run_in_client(
+    let to_path_str = match env::var("RUNTIME_DIRECTORY") {
+        Ok(h) => h,
+        Err(_) => {
+            log::error!("RUNTIME_DIRECTORY NOT FOUND. Make sure you're using the service!");
+            panic!()
+        }
+    };
+
+    let to_path = Path::new(&to_path_str);
+    if !to_path.exists() {
+        log::warn!(
+            "Runtime directory {} does not exist! Attempting to create directory manually...",
+            to_path.to_str().unwrap()
+        );
+        match create_dir(to_path) {
+            Ok(_) => {
+                log::info!("App directory created!");
+            }
+            Err(e) => {
+                log::error!("App directory could not be created. Reason: {}", e);
+                panic!("App directory could not be created");
+            }
+        }
+    }
+    fs::create_dir(&to_path.join("applications"));
+    fs::create_dir(&to_path.join("icons"));
+    fs::create_dir(&to_path.join("pixmaps"));
+    // Find the data dirs and iterate over them
+    for x in run_in_client(container_name, container_type, "echo $XDG_DATA_DIRS", true)?
+        .unwrap()
+        .split(":")
+        .map(|p| Path::new(p))
+    {
+        copy_from_client(
+            container_name,
+            container_type,
+            &x.join("applications"),
+            &to_path.join("applications"),
+        )?;
+        copy_from_client(
+            container_name,
+            container_type,
+            &x.join("icons"),
+            &to_path.join("icons"),
+        )?;
+    }
+    copy_from_client(
         container_name,
         container_type,
-        &format!(
-            "container-desktop-entries -n {} -t {}",
-            container_name,
-            String::from(container_type)
-        ),
+        Path::new("/usr/share/pixmaps"),
+        &to_path.join("pixmaps"),
     )?;
+    let connection = Connection::session().await?;
+    let proxy = DesktopEntryProxy::new(&connection).await?;
+
+    // Desktop file parsing + icon lookup
+    let exec_regex = Regex::new(container_type.format_exec_regex_pattern().as_str()).unwrap();
+    let name_regex = Regex::new(container_type.format_name_regex_pattern().as_str()).unwrap();
+
+    for entry_path in fs::read_dir(to_path.join("applications")).unwrap() {
+        let path = entry_path.unwrap().path();
+        if let Ok(file_text) = read_to_string(&path) {
+            // run regex on it now
+            let file_text = exec_regex
+                .replace_all(
+                    &file_text,
+                    container_type.format_desktop_exec(container_name),
+                )
+                .to_string();
+            let file_text = name_regex
+                .replace_all(
+                    &file_text,
+                    container_type.format_desktop_name(container_name),
+                )
+                .to_string();
+
+            if let Ok(entry) = DesktopEntry::decode(&path, &file_text) {
+                // We have a valid desktop entry
+                if entry.no_display() {
+                    continue; // We don't want to push NoDisplay entries into our host
+                }
+
+                println!("{}", entry.to_string());
+
+                match proxy.register_entry(&entry.appid, &file_text).await {
+                    Ok(_) => {
+                        log::info!("Daemon registered entry: {}", entry.appid);
+                        if let Some(icon_name) = entry.icon() {
+                            if let Some(icon_path) = lookup_icon(
+                                icon_name,
+                                &to_path.join("icons"),
+                                &to_path.join("pixmaps"),
+                            ) {
+                                match icon_path.extension().map(|p| p.to_str().unwrap()) {
+                                    Some("png" | "svg") => {
+                                        let file_bytes = read(icon_path).unwrap();
+                                        match proxy
+                                            .register_icon(icon_name, file_bytes.as_slice())
+                                            .await
+                                        {
+                                            Ok(_) => {
+                                                log::info!("Daemon registered icon: {}", icon_name);
+                                            }
+                                            Err(e) => {
+                                                log::error!("Error (icons): {:?}", e);
+                                            }
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Error (entry): {}", e);
+                    }
+                }
+            }
+        }
+    }
+    let _ = fs::remove_dir_all(&to_path.join("applications"));
+    let _ = fs::remove_dir_all(&to_path.join("icons"));
+    let _ = fs::remove_dir_all(&to_path.join("pixmaps"));
     Ok(())
 }
 
+fn lookup_icon(name: &str, base_path: &Path, pixmap_path: &Path) -> Option<PathBuf> {
+    WalkDir::new(base_path)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| match e {
+            Ok(d) => {
+                if d.path()
+                    .file_stem()
+                    .is_some_and(|stem| stem.to_str().unwrap() == name)
+                {
+                    Some(d)
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        })
+        .max_by_key(|entry| {
+            if let Some(ext_os) = entry.path().extension() {
+                let ext = ext_os.to_str().unwrap();
+                match ext {
+                    "svg" => u32::MAX,
+                    "png" => {
+                        if let Some(p1) = entry.path().parent() {
+                            if let Some(p2) = p1.parent() {
+                                if let Some((a, _)) =
+                                    p2.file_name().unwrap().to_str().unwrap().split_once("x")
+                                {
+                                    if let Ok(size) = a.parse::<u32>() {
+                                        return size;
+                                    }
+                                }
+                            }
+                        }
+                        u32::MIN
+                    }
+                    _ => u32::MIN,
+                }
+            } else {
+                u32::MIN
+            }
+        })
+        .map(|entry| entry.path().to_path_buf())
+        .or(WalkDir::new(pixmap_path)
+            .follow_links(false)
+            .into_iter()
+            .find(|e| {
+                e.as_ref().is_ok_and(|d| {
+                    d.path()
+                        .file_stem()
+                        .is_some_and(|stem| stem.to_str().unwrap() == name)
+                })
+            })
+            .map(|f| f.unwrap().path().to_path_buf()))
+}
+
 /// start the client
-fn start_client(container_name: &str, container_type: ContainerType) -> Result<(), io::Error> {
+fn start_client(
+    container_name: &str,
+    container_type: ContainerType,
+) -> Result<Option<String>, io::Error> {
     shell_command(&container_type.format_start(container_name), true)
 }
 
@@ -67,11 +254,25 @@ fn run_in_client(
     container_name: &str,
     container_type: ContainerType,
     command: &str,
-) -> Result<(), io::Error> {
-    shell_command(&container_type.format_exec(container_name, command), false)
+    wait_for_output: bool,
+) -> Result<Option<String>, io::Error> {
+    shell_command(
+        &container_type.format_exec(container_name, command),
+        wait_for_output,
+    )
 }
 
-fn shell_command(command: &str, wait_for_output: bool) -> Result<(), io::Error> {
+/// copy a folder from the container of choice
+fn copy_from_client(
+    container_name: &str,
+    container_type: ContainerType,
+    from: &Path,
+    to: &Path,
+) -> Result<Option<String>, io::Error> {
+    shell_command(&container_type.format_copy(container_name, from, to), true)
+}
+
+fn shell_command(command: &str, wait_for_output: bool) -> Result<Option<String>, io::Error> {
     log::debug!("Full command: sh -c '{}'", command);
     if wait_for_output {
         let out = Command::new("sh")
@@ -81,9 +282,10 @@ fn shell_command(command: &str, wait_for_output: bool) -> Result<(), io::Error> 
             .expect(&format!("Command {} failed", command));
         log::debug!(
             "Output completed! stdout: '{}', stderr: '{}'",
-            String::from_utf8(out.stdout).unwrap(),
+            String::from_utf8(out.stdout.clone()).unwrap(),
             String::from_utf8(out.stderr).unwrap()
         );
+        Ok(Some(String::from_utf8(out.stdout).unwrap()))
     } else {
         let child_handle = Command::new("sh")
             .arg("-c")
@@ -91,7 +293,6 @@ fn shell_command(command: &str, wait_for_output: bool) -> Result<(), io::Error> 
             .spawn()
             .expect(&format!("Command {} failed", command));
         log::debug!("Started child process with pid {}", child_handle.id());
+        Ok(None)
     }
-
-    Ok(())
 }
