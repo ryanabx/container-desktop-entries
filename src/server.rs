@@ -120,6 +120,7 @@ async fn set_up_client(
 
     for entry_path in fs::read_dir(to_path.join("applications")).unwrap() {
         let path = entry_path.unwrap().path();
+        log::debug!("Looking at path: {:?}", path);
         if let Ok(file_text) = read_to_string(&path) {
             // run regex on it now
             let file_text = exec_regex
@@ -150,6 +151,7 @@ async fn set_up_client(
                                 &to_path.join("icons"),
                                 &to_path.join("pixmaps"),
                             ) {
+                                log::debug!("Found icon path that matches! {:?}", icon_path);
                                 match icon_path.extension().map(|p| p.to_str().unwrap()) {
                                     Some("png" | "svg") => {
                                         let file_bytes = read(icon_path).unwrap();
