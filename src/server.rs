@@ -83,9 +83,9 @@ async fn set_up_client(
             }
         }
     }
-    fs::create_dir(&to_path.join("applications"));
-    fs::create_dir(&to_path.join("icons"));
-    fs::create_dir(&to_path.join("pixmaps"));
+    let _ = fs::create_dir(&to_path.join("applications"));
+    let _ = fs::create_dir(&to_path.join("icons"));
+    let _ = fs::create_dir(&to_path.join("pixmaps"));
     // Find the data dirs and iterate over them
     for x in run_in_client(container_name, container_type, "echo $XDG_DATA_DIRS", true)?
         .unwrap()
@@ -140,8 +140,6 @@ async fn set_up_client(
                 if entry.no_display() {
                     continue; // We don't want to push NoDisplay entries into our host
                 }
-
-                println!("{}", entry.to_string());
 
                 match proxy.register_entry(&entry.appid, &file_text).await {
                     Ok(_) => {

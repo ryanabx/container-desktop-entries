@@ -9,7 +9,7 @@ mod server;
 
 /// program to get desktop entries from containers
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None, arg_required_else_help = true)]
+#[command(version, about, long_about = None)]
 struct Args {
     #[arg(short, long, requires = "server", value_name = "CONFIG_PATH")]
     /// [AS SERVER] Path to an alternate config for the program.
