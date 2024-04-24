@@ -20,7 +20,7 @@ SourceLicense:  Apache-2.0
 License:        # FIXME
 # LICENSE.dependencies contains a full license breakdown
 
-URL:            https://github.com/desktop-integration/container-desktop-entries
+URL:            https://github.com/ryanabx/container-desktop-entries
 Source:         container-desktop-entries-%{ver}.tar.xz
 Source:         container-desktop-entries-%{ver}-vendor.tar.xz
 

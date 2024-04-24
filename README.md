@@ -4,7 +4,7 @@
 
 This project adds linux desktop entries for applications installed inside containers! Support for toolbox is implemented, but podman and docker will need some testing (feel free to submit PRs!)
 
-> **NOTE:** Requires: https://github.com/desktop-integration/desktop-entry-daemon
+> **NOTE:** Requires: https://github.com/ryanabx/desktop-entry-daemon
 
 ## Build/Install/Uninstall (Server, on host system)
 
