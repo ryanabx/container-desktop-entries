@@ -1,6 +1,6 @@
 use clap::Parser;
 use server::ServerError;
-use std::{env, io};
+use std::{env, fs, io};
 
 use std::{fs::read_to_string, path::Path};
 
@@ -177,14 +177,7 @@ async fn main() -> Result<(), Error> {
     match conf_path.try_exists() {
         Ok(false) | Err(_) => {
             log::error!("Cannot find config at '{:?}'", conf_path);
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!(
-                    "Config path does not exist. Consider creating a config at '{:?}'",
-                    conf_path
-                ),
-            )
-            .into());
+            let _ = fs::write(conf_path, "");
         }
         _ => {}
     }
