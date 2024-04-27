@@ -106,9 +106,16 @@ async fn main() -> Result<(), CDEError> {
     };
     match conf_path.try_exists() {
         Ok(false) | Err(_) => {
-            log::error!("Cannot find config at '{:?}'", conf_path);
+            log::error!(
+                "cannot find config at '{:?}'. creating directory and file...",
+                conf_path
+            );
             let _ = fs::create_dir(conf_path.parent().unwrap());
-            let _ = fs::write(conf_path, "");
+            let _ = fs::write(conf_path,"// Example config:\n/*\n(\n  containers:\n  [\n    (\"fedora-toolbox-40\", Toolbox),\n    (\"docker-container\", Docker),\n  ],\n)\n*/",
+            );
+            log::info!(
+                "write a configuration file. an example has been written to the config directory"
+            )
         }
         _ => {}
     }

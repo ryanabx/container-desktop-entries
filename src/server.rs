@@ -1,7 +1,7 @@
 use std::{
     env,
     fmt::Display,
-    fs::{self, create_dir, read, read_to_string},
+    fs::{self, read, read_to_string},
     io,
     path::{Path, PathBuf},
     process::Command,
@@ -42,19 +42,23 @@ impl Display for ClientSetupError {
 }
 
 pub async fn server(containers: ContainerList, owner: &str) -> Result<(), ClientSetupError> {
-    let home = match env::var("RUNTIME_DIRECTORY") {
-        Ok(h) => h,
-        Err(_) => {
-            log::error!("RUNTIME_DIRECTORY NOT FOUND. Make sure you're using the service!");
-            panic!()
-        }
-    };
+    let runtime_dir_str = env::var("RUNTIME_DIRECTORY").unwrap_or(format!(
+        "/run/user/{}/container-desktop-entries/",
+        env::var("UID").unwrap_or("1000".to_string())
+    ));
+    let tmp_dir = Path::new(&runtime_dir_str);
+    if !tmp_dir.exists() {
+        log::warn!(
+            "tmp_dir {} does not exist! creating directory...",
+            tmp_dir.to_str().unwrap()
+        );
+        fs::create_dir(tmp_dir).unwrap();
+    }
     let connection = Connection::session().await?;
     let proxy = DesktopEntryProxy::new(&connection).await?;
     if let Err(e) = proxy.remove_session_owner(&owner).await {
         log::error!("could not remove owner container-desktop-entries: {:?}", e);
     }
-    let to_path = Path::new(&home).join(Path::new(".cache/container-desktop-entries/"));
     for (container_name, container_type) in containers.containers {
         if container_type.not_supported() {
             log::error!(
@@ -63,7 +67,7 @@ pub async fn server(containers: ContainerList, owner: &str) -> Result<(), Client
             );
             continue;
         }
-        if let Err(kind) = set_up_client(&container_name, container_type, &to_path, owner).await {
+        if let Err(kind) = set_up_client(&container_name, container_type, &tmp_dir, owner).await {
             log::error!("Error setting up client {}: {:?}", container_name, kind);
         }
     }
@@ -78,21 +82,6 @@ async fn set_up_client(
 ) -> Result<(), ClientSetupError> {
     // Start client if client is not running
     start_client(container_name, container_type)?;
-    if !to_path.exists() {
-        log::warn!(
-            "Runtime directory {} does not exist! Attempting to create directory manually...",
-            to_path.to_str().unwrap()
-        );
-        match create_dir(to_path) {
-            Ok(_) => {
-                log::info!("App directory created!");
-            }
-            Err(e) => {
-                log::error!("App directory could not be created. Reason: {}", e);
-                panic!("App directory could not be created");
-            }
-        }
-    }
     let _ = fs::create_dir(&to_path.join("applications"));
     let _ = fs::create_dir(&to_path.join("icons"));
     let _ = fs::create_dir(&to_path.join("pixmaps"));
