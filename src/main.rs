@@ -107,6 +107,7 @@ async fn main() -> Result<(), CDEError> {
     match conf_path.try_exists() {
         Ok(false) | Err(_) => {
             log::error!("Cannot find config at '{:?}'", conf_path);
+            let _ = fs::create_dir(conf_path.parent().unwrap());
             let _ = fs::write(conf_path, "");
         }
         _ => {}
