@@ -173,7 +173,10 @@ async fn set_up_client(
                                             Some("png" | "svg") => {
                                                 let file_bytes = read(icon_path).unwrap();
                                                 match proxy
-                                                    .new_session_icon(icon_name, file_bytes.as_slice())
+                                                    .new_session_icon(
+                                                        icon_name,
+                                                        file_bytes.as_slice(),
+                                                    )
                                                     .await
                                                 {
                                                     Ok(_) => {
