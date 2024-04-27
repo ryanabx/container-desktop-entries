@@ -11,9 +11,9 @@
 //! This type implements the [D-Bus standard interfaces], (`org.freedesktop.DBus.*`) for which the
 //! following zbus API can be used:
 //!
-//! * [`zbus::fdo::IntrospectableProxy`]
-//! * [`zbus::fdo::PropertiesProxy`]
 //! * [`zbus::fdo::PeerProxy`]
+//! * [`zbus::fdo::PropertiesProxy`]
+//! * [`zbus::fdo::IntrospectableProxy`]
 //!
 //! Consequently `zbus-xmlgen` did not generate code for the above interfaces.
 //!
@@ -26,20 +26,21 @@ use zbus::proxy;
     assume_defaults = true
 )]
 trait DesktopEntry {
-    /// RegisterChangeHandler method
-    fn register_change_handler(&self, pid: u32) -> zbus::Result<()>;
+    /// NewPersistentEntry method
+    fn new_persistent_entry(&self, appid: &str, entry: &str) -> zbus::Result<()>;
 
-    /// RegisterEntry method
-    fn register_entry(&self, appid: &str, entry: &str) -> zbus::Result<()>;
+    /// NewPersistentIcon method
+    fn new_persistent_icon(&self, name: &str, data: &[u8]) -> zbus::Result<()>;
 
-    /// RegisterIcon method
-    fn register_icon(&self, name: &str, data: &[u8]) -> zbus::Result<()>;
+    /// NewProcessEntry method
+    fn new_process_entry(&self, appid: &str, entry: &str) -> zbus::Result<()>;
 
-    /// EntryChanged signal
-    #[zbus(signal)]
-    fn entry_changed(&self, appid: &str) -> zbus::Result<()>;
+    /// NewProcessIcon method
+    fn new_process_icon(&self, name: &str, data: &[u8]) -> zbus::Result<()>;
 
-    /// IconChanged signal
-    #[zbus(signal)]
-    fn icon_changed(&self, icon_name: &str) -> zbus::Result<()>;
+    /// NewSessionEntry method
+    fn new_session_entry(&self, appid: &str, entry: &str) -> zbus::Result<()>;
+
+    /// NewSessionIcon method
+    fn new_session_icon(&self, name: &str, data: &[u8]) -> zbus::Result<()>;
 }

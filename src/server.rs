@@ -156,7 +156,7 @@ async fn set_up_client(
                             continue; // We don't want to push NoDisplay entries into our host
                         }
 
-                        match proxy.register_entry(&entry.appid, &file_text).await {
+                        match proxy.new_session_entry(&entry.appid, &file_text).await {
                             Ok(_) => {
                                 log::info!("Daemon registered entry: {}", entry.appid);
                                 if let Some(icon_name) = entry.icon() {
@@ -173,7 +173,7 @@ async fn set_up_client(
                                             Some("png" | "svg") => {
                                                 let file_bytes = read(icon_path).unwrap();
                                                 match proxy
-                                                    .register_icon(icon_name, file_bytes.as_slice())
+                                                    .new_session_icon(icon_name, file_bytes.as_slice())
                                                     .await
                                                 {
                                                     Ok(_) => {
