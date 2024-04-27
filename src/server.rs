@@ -1,5 +1,6 @@
 use std::{
     env,
+    fmt::Display,
     fs::{self, create_dir, read, read_to_string},
     io,
     path::{Path, PathBuf},
@@ -31,7 +32,16 @@ impl From<zbus::Error> for ClientSetupError {
     }
 }
 
-pub async fn server(containers: ContainerList) {
+impl Display for ClientSetupError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::IO(e) => e.fmt(f),
+            Self::Zbus(e) => e.fmt(f),
+        }
+    }
+}
+
+pub async fn server(containers: ContainerList, owner: &str) -> Result<(), ClientSetupError> {
     let home = match env::var("RUNTIME_DIRECTORY") {
         Ok(h) => h,
         Err(_) => {
@@ -39,6 +49,11 @@ pub async fn server(containers: ContainerList) {
             panic!()
         }
     };
+    let connection = Connection::session().await?;
+    let proxy = DesktopEntryProxy::new(&connection).await?;
+    if let Err(e) = proxy.remove_session_owner(&owner).await {
+        log::error!("could not remove owner container-desktop-entries: {:?}", e);
+    }
     let to_path = Path::new(&home).join(Path::new(".cache/container-desktop-entries/"));
     for (container_name, container_type) in containers.containers {
         if container_type.not_supported() {
@@ -48,16 +63,18 @@ pub async fn server(containers: ContainerList) {
             );
             continue;
         }
-        if let Err(kind) = set_up_client(&container_name, container_type, &to_path).await {
+        if let Err(kind) = set_up_client(&container_name, container_type, &to_path, owner).await {
             log::error!("Error setting up client {}: {:?}", container_name, kind);
         }
     }
+    Ok(())
 }
 
 async fn set_up_client(
     container_name: &str,
     container_type: ContainerType,
     to_path: &Path,
+    owner: &str,
 ) -> Result<(), ClientSetupError> {
     // Start client if client is not running
     start_client(container_name, container_type)?;
@@ -148,7 +165,10 @@ async fn set_up_client(
                             continue; // We don't want to push NoDisplay entries into our host
                         }
 
-                        match proxy.new_session_entry(&entry.appid, &file_text).await {
+                        match proxy
+                            .new_session_entry(&entry.appid, &file_text, owner)
+                            .await
+                        {
                             Ok(_) => {
                                 log::info!("Daemon registered entry: {}", entry.appid);
                                 if let Some(icon_name) = entry.icon() {
@@ -168,6 +188,7 @@ async fn set_up_client(
                                                     .new_session_icon(
                                                         icon_name,
                                                         file_bytes.as_slice(),
+                                                        owner,
                                                     )
                                                     .await
                                                 {

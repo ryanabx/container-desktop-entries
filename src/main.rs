@@ -2,6 +2,7 @@ use clap::Parser;
 use container_type::ContainerType;
 use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};
+use server::ClientSetupError;
 use std::error::Error;
 use std::fmt::Display;
 use std::{env, fs, io};
@@ -32,6 +33,7 @@ enum CDEError {
     IO(io::Error),
     NoEnv(std::env::VarError),
     Ron(SpannedError),
+    ClientSetup(ClientSetupError),
 }
 
 impl Error for CDEError {
@@ -54,6 +56,7 @@ impl Display for CDEError {
             Self::IO(e) => e.fmt(f),
             Self::NoEnv(e) => e.fmt(f),
             Self::Ron(e) => e.fmt(f),
+            Self::ClientSetup(e) => e.fmt(f),
         }
     }
 }
@@ -73,6 +76,12 @@ impl From<std::env::VarError> for CDEError {
 impl From<SpannedError> for CDEError {
     fn from(value: SpannedError) -> Self {
         Self::Ron(value)
+    }
+}
+
+impl From<ClientSetupError> for CDEError {
+    fn from(value: ClientSetupError) -> Self {
+        Self::ClientSetup(value)
     }
 }
 
@@ -104,7 +113,7 @@ async fn main() -> Result<(), CDEError> {
     }
     let config_data: ContainerList = ron::from_str(&read_to_string(conf_path)?)?;
 
-    server::server(config_data).await;
+    server::server(config_data, "container-desktop-entries").await?;
 
     Ok(())
 }
