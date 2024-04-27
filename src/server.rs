@@ -3,7 +3,7 @@ use std::{
     fs::{self, create_dir, read, read_to_string},
     io,
     path::{Path, PathBuf},
-    process::{self, Command},
+    process::Command,
 };
 
 use freedesktop_desktop_entry::DesktopEntry;
@@ -11,10 +11,7 @@ use regex::Regex;
 use walkdir::WalkDir;
 use zbus::Connection;
 
-use crate::{desktop_entry::DesktopEntryProxy, ContainerType};
-
-#[derive(Debug)]
-pub enum ServerError {}
+use crate::{container_type::ContainerType, desktop_entry::DesktopEntryProxy, ContainerList};
 
 #[derive(Debug)]
 pub enum ClientSetupError {
@@ -34,7 +31,7 @@ impl From<zbus::Error> for ClientSetupError {
     }
 }
 
-pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), ServerError> {
+pub async fn server(containers: ContainerList) {
     let home = match env::var("RUNTIME_DIRECTORY") {
         Ok(h) => h,
         Err(_) => {
@@ -43,7 +40,7 @@ pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), Serv
         }
     };
     let to_path = Path::new(&home).join(Path::new(".cache/container-desktop-entries/"));
-    for (container_name, container_type) in containers {
+    for (container_name, container_type) in containers.containers {
         if container_type.not_supported() {
             log::error!(
                 "Container type {:?} is currently not supported!",
@@ -54,11 +51,6 @@ pub async fn server(containers: Vec<(String, ContainerType)>) -> Result<(), Serv
         if let Err(kind) = set_up_client(&container_name, container_type, &to_path).await {
             log::error!("Error setting up client {}: {:?}", container_name, kind);
         }
-    }
-    // let _ = fs::remove_dir_all(&to_path);
-    loop {
-        // Busy wait until logging off, keeping the desktop entries alive
-        std::future::pending::<()>().await;
     }
 }
 
