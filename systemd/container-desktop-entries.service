@@ -9,6 +9,3 @@ Environment="RUST_LOG=debug"
 ExecStart=container-desktop-entries
 RuntimeDirectory=container-desktop-entries
 Slice=session.slice
-
-[Install]
-WantedBy=desktop-entry-daemon.service
