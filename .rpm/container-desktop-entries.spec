@@ -11,7 +11,7 @@
 %global date ###
 
 Name:           container-desktop-entries
-Version:        %{ver}~%{date}
+Version:        %{ver}~git%{date}.%{sub %{commit} 1 7}
 Release:        %autorelease
 Summary:        A tool to add guest container desktop entries to the host system
 
@@ -21,8 +21,8 @@ License:        # FIXME
 # LICENSE.dependencies contains a full license breakdown
 
 URL:            https://github.com/ryanabx/container-desktop-entries
-Source:         container-desktop-entries-%{ver}.tar.xz
-Source:         container-desktop-entries-%{ver}-vendor.tar.xz
+Source:         container-desktop-entries-%{commit}.tar.xz
+Source:         container-desktop-entries-%{commit}-vendor.tar.xz
 
 BuildRequires:  cargo-rpm-macros >= 26
 BuildRequires:  rustc
@@ -39,7 +39,7 @@ Requires:       desktop-entry-daemon
 %description %{_description}
 
 %prep
-%autosetup -n %{crate}-%{ver} -p1 -a1
+%autosetup -n %{name}-%{commit} -p1 -a1
 %cargo_prep -N
 cat .vendor/config.toml >> .cargo/config
 
