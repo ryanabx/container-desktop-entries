@@ -1,5 +1,6 @@
 [Unit]
 Description=Container desktop entries server service
+WantedBy=desktop-entry-daemon.service
 Requires=desktop-entry-daemon.service
 After=desktop-entry-daemon.service
 
