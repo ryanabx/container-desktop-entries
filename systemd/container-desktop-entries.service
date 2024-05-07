@@ -1,5 +1,5 @@
 [Unit]
-Description=Container desktop entries server service
+Description=Provides desktop entries for container apps
 WantedBy=desktop-entry-daemon.service
 Requires=desktop-entry-daemon.service
 After=desktop-entry-daemon.service
@@ -9,4 +9,6 @@ Type=simple
 Environment="RUST_LOG=debug"
 ExecStart=container-desktop-entries
 RuntimeDirectory=container-desktop-entries
-Slice=session.slice
+
+[Install]
+WantedBy=desktop-entry-daemon.service
